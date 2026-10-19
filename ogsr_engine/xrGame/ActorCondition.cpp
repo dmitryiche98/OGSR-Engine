@@ -673,3 +673,16 @@ void CActorCondition::net_Relcase(CObject* O)
         return;
     monsters_feel_touch->feel_touch_relcase(O);
 }
+
+float CActorCondition::HitOutfitEffect(float hit_power, ALife::EHitType hit_type, s16 element, float AP, bool wear)
+{
+    if (m_object->IsHelmetHeadHit(u16(element)))
+    {
+        const auto& p = m_object->HelmetParams();
+        if (!p.outfit_protects_head)
+            return hit_power; // голову захищає тільки шолом
+        if (!p.outfit_wear_on_head)
+            wear = false;
+    }
+    return inherited::HitOutfitEffect(hit_power, hit_type, element, AP, wear);
+}

@@ -119,11 +119,18 @@ void CUIOutfitInfo::Update(CCustomOutfit* outfit)
         }
         else
         {
-            _val_outfit = outfit ? outfit->GetDefHitTypeProtection(ALife::EHitType(i - _max_item_index1)) : 1.0f;
-            _val_outfit = 1.0f - _val_outfit;
+            // "Загублений в Зоні": одна сумарна цифра замість "костюм + артефакти/шолом".
+            // Шкода множиться послідовно: на коефіцієнт артефактів і шолома (Actor::Hit), потім костюма
+            // (ConditionHit), тож сумарний захист = 1 - k_костюма * k_артефактів. Обидва k >= 0,
+            // тому більше 100% не буває; від'ємне значення - предмети підсилюють шкоду.
+            const ALife::EHitType ht = ALife::EHitType(i - _max_item_index1);
+            float k_outfit = outfit ? outfit->GetDefHitTypeProtection(ht) : 1.0f;
+            if (k_outfit < 0.0f)
+                k_outfit = 0.0f;
+            const float k_af = Actor()->HitArtefactsOnBelt(1.0f, ht); // артефакти на поясі + шолом, вже >= 0
 
-            _val_af = Actor()->HitArtefactsOnBelt(1.0f, ALife::EHitType(i - _max_item_index1));
-            _val_af = 1.0f - _val_af;
+            _val_outfit = 1.0f - k_outfit * k_af;
+            _val_af = 0.0f;
         }
 
         if (fsimilar(_val_outfit, 0.0f) && fsimilar(_val_af, 0.0f))

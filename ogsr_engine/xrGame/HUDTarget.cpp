@@ -28,6 +28,9 @@
 #include "HudItem.h"
 #include "Weapon.h"
 #include "PDA.h"
+#include "CustomOutfit.h"
+#include "WeaponKnife.h"
+#include "WeaponBinoculars.h"
 
 constexpr float C_SIZE = 0.025f, NEAR_LIM = 0.5f, SHOW_INFO_SPEED = 0.5f, HIDE_INFO_SPEED = 10.f;
 
@@ -279,9 +282,17 @@ void CHUDTarget::Render()
 
                         const LPCSTR draw_str = I->Name /*Complex*/ ();
 
+                        // "Загублений в Зоні": стан показуємо також для вогнепальної зброї та костюмів
+                        bool show_cond = I->GetInvShowCondition() || smart_cast<CCustomOutfit*>(I);
+                        if (!show_cond)
+                        {
+                            CWeapon* W = smart_cast<CWeapon*>(I);
+                            show_cond = W && !smart_cast<CWeaponKnife*>(W) && !smart_cast<CWeaponBinoculars*>(W);
+                        }
+
                         if (psHUD_Flags.test(HUD_INFO_OVERHEAD))
                         {
-                            if (I->GetInvShowCondition())
+                            if (show_cond)
                             {
                                 F->Out(x, y, "%s (%.0f%%)", draw_str, I->GetConditionToShow() * 100.f);
                             }
@@ -290,7 +301,7 @@ void CHUDTarget::Render()
                         }
                         else
                         {
-                            if (I->GetInvShowCondition())
+                            if (show_cond)
                             {
                                 F->OutNext("%s (%.0f%%)", draw_str, I->GetConditionToShow() * 100.f);
                             }

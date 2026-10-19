@@ -81,6 +81,11 @@ void CInventoryItem::Load(LPCSTR section)
     CHitImmunity::LoadImmunities(pSettings->r_string(section, "immunities_sect"), pSettings);
     m_icon_params.Load(section);
 
+    // "Загублений в Зоні": use_condition = true - предмет втрачає стан від хітів, коли лежить на землі
+    // (як костюми і зброя; коефіцієнти - immunities_sect). Напр. шоломи.
+    if (READ_IF_EXISTS(pSettings, r_bool, section, "use_condition", false))
+        m_flags.set(FUsingCondition, TRUE);
+
     ISpatial* self = smart_cast<ISpatial*>(this);
     if (self)
         self->spatial.type |= STYPE_VISIBLEFORAI;

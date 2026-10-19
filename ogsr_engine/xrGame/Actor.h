@@ -233,8 +233,9 @@ protected:
         bool loaded{};
         bool debug{};
         bool head_only[ALife::eHitTypeMax]{};
-        float wear[ALife::eHitTypeMax]{};
         float min_condition{};
+        bool outfit_protects_head{true}; // чи захищає костюм голову (за bones_koeff_protection)
+        bool outfit_wear_on_head{true}; // чи зношується костюм від влучань у голову
         xr_vector<shared_str> head_bones;
     };
     SHelmetParams m_helmet_params;
@@ -243,6 +244,18 @@ protected:
     float HelmetHitDelta(float hit_power, ALife::EHitType hit_type, u16 bone, bool real_hit);
 
 public:
+    const SHelmetParams& HelmetParams()
+    {
+        if (!m_helmet_params.loaded)
+            LoadHelmetParams();
+        return m_helmet_params;
+    }
+    bool IsHelmetHeadHit(u16 bone)
+    {
+        HelmetParams();
+        return IsHelmetHeadBone(bone);
+    }
+
 
     virtual void UpdateArtefactPanel();
 

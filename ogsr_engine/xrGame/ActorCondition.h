@@ -51,6 +51,8 @@ public:
     virtual void reinit();
 
     virtual CWound* ConditionHit(SHit* pHDS);
+    // "Загублений в Зоні": влучання в голову захищає і зношує шолом, а не костюм
+    virtual float HitOutfitEffect(float hit_power, ALife::EHitType hit_type, s16 element, float AP, bool wear = true) override;
     virtual void UpdateCondition();
 
     virtual void ChangeAlcohol(float value);

@@ -1611,16 +1611,8 @@ void CActor::LoadHelmetParams()
 
     p.debug = READ_IF_EXISTS(pSettings, r_bool, sect, "debug", false);
     p.min_condition = READ_IF_EXISTS(pSettings, r_float, sect, "min_condition", 0.0f);
-
-    for (int t = 0; t < ALife::eHitTypeMax; ++t)
-    {
-        LPCSTR name = get_token_name(ALife::hit_types_token, t);
-        if (!name || !name[0])
-            continue;
-        string128 key;
-        xr_sprintf(key, "wear_%s", name);
-        p.wear[t] = READ_IF_EXISTS(pSettings, r_float, sect, key, 0.0f);
-    }
+    p.outfit_protects_head = READ_IF_EXISTS(pSettings, r_bool, sect, "outfit_protects_head", true);
+    p.outfit_wear_on_head = READ_IF_EXISTS(pSettings, r_bool, sect, "outfit_wear_on_head", true);
 
     string128 item;
     if (pSettings->line_exist(sect, "head_only"))
@@ -1706,8 +1698,8 @@ float CActor::HelmetHitDelta(float hit_power, ALife::EHitType hit_type, u16 bone
 
     if (real_hit)
     {
-        const float wear_mult = READ_IF_EXISTS(pSettings, r_float, helmet->cNameSect(), "helmet_wear_mult", 1.0f);
-        const float wear = hit_power * p.wear[hit_type] * wear_mult;
+        // знос - як у костюма: сила хіта * коефіцієнт з immunities_sect шолома
+        const float wear = hit_power * helm->immunities()[hit_type];
         if (wear > 0.0f)
             helmet->ChangeCondition(-wear);
         if (p.debug)

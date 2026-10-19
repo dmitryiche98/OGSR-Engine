@@ -253,7 +253,7 @@ void CEntityCondition::UpdateCondition()
     clamp(m_fPsyHealth, 0.0f, m_fPsyHealthMax);
 }
 
-float CEntityCondition::HitOutfitEffect(float hit_power, ALife::EHitType hit_type, s16 element, float AP)
+float CEntityCondition::HitOutfitEffect(float hit_power, ALife::EHitType hit_type, s16 element, float AP, bool wear)
 {
     CInventoryOwner* pInvOwner = smart_cast<CInventoryOwner*>(m_object);
     if (!pInvOwner)
@@ -271,7 +271,8 @@ float CEntityCondition::HitOutfitEffect(float hit_power, ALife::EHitType hit_typ
         new_hit_power *= pOutfit->GetHitTypeProtection(hit_type, element);
 
     //увеличить изношенность костюма
-    pOutfit->Hit(hit_power, hit_type);
+    if (wear)
+        pOutfit->Hit(hit_power, hit_type);
 
     return new_hit_power;
 }
