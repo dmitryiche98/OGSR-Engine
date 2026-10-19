@@ -260,6 +260,10 @@ bool CUIInventoryWnd::ToSlot(CUICellItem* itm, bool force_place)
         if (!force_place || _slot == NO_ACTIVE_SLOT || GetInventory()->m_slots[_slot].m_bPersistent)
             return false;
 
+        // "Загублений в Зоні": слот вільний, але власник не пускає предмет (шолом при костюмі з вбудованим шоломом)
+        if (!GetInventory()->m_slots[_slot].m_pIItem)
+            return false;
+
         CUIDragDropListEx* slot_list = GetSlotList(_slot);
         VERIFY(slot_list->ItemsCount() == 1);
 

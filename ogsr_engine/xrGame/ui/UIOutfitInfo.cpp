@@ -15,6 +15,8 @@ CUIOutfitInfo::~CUIOutfitInfo()
     {
         CUIStatic* _s = m_items[i];
         xr_delete(_s);
+        CUIStatic* _h = m_items_head[i];
+        xr_delete(_h);
     }
 }
 
@@ -70,6 +72,13 @@ void CUIOutfitInfo::InitFromXml(CUIXml& xml_doc)
             CUIStatic* _s = m_items[i];
             _s->SetAutoDelete(false);
             CUIXmlInit::InitStatic(xml_doc, _buff, 0, _s);
+
+            if (i >= _max_item_index1)
+            {
+                m_items_head[i] = xr_new<CUIStatic>();
+                m_items_head[i]->SetAutoDelete(false);
+                CUIXmlInit::InitStatic(xml_doc, _buff, 0, m_items_head[i]);
+            }
         }
     }
 }
@@ -109,6 +118,8 @@ void CUIOutfitInfo::Update(CCustomOutfit* outfit)
 
         float _val_outfit = 0.0f;
         float _val_af = 0.0f;
+        float _val_head = 0.0f;
+        bool _split = false; // окремі рядки "(тіло)" і "(голова)"
 
         if (i < _max_item_index1)
         {
@@ -123,17 +134,31 @@ void CUIOutfitInfo::Update(CCustomOutfit* outfit)
             // Шкода множиться послідовно: на коефіцієнт артефактів і шолома (Actor::Hit), потім костюма
             // (ConditionHit), тож сумарний захист = 1 - k_костюма * k_артефактів. Обидва k >= 0,
             // тому більше 100% не буває; від'ємне значення - предмети підсилюють шкоду.
+            // Для куль/ударів/порізів (head_only) шолом діє лише на голову, тож показуємо два рядки:
+            //   тіло   = 1 - k_костюма * k_артефактів;
+            //   голова = 1 - k_костюма_для_голови * k_артефактів_і_шолома,
+            // де костюм для голови рахується, лише якщо має вбудований шолом або outfit_protects_head.
+            // Артефакти діють на все тіло - вони в обох рядках.
             const ALife::EHitType ht = ALife::EHitType(i - _max_item_index1);
             float k_outfit = outfit ? outfit->GetDefHitTypeProtection(ht) : 1.0f;
             if (k_outfit < 0.0f)
                 k_outfit = 0.0f;
-            const float k_af = Actor()->HitArtefactsOnBelt(1.0f, ht); // артефакти на поясі + шолом, вже >= 0
+            const float k_af_helm = Actor()->HitArtefactsOnBelt(1.0f, ht); // артефакти на поясі + шолом, вже >= 0
 
-            _val_outfit = 1.0f - k_outfit * k_af;
+            if (Actor()->HelmetParams().head_only[ht])
+            {
+                const float k_af = Actor()->HitArtefactsOnBelt(1.0f, ht, true); // лише артефакти
+                const float k_outfit_head = Actor()->OutfitProtectsHead() ? k_outfit : 1.0f;
+                _val_outfit = 1.0f - k_outfit * k_af;
+                _val_head = 1.0f - k_outfit_head * k_af_helm;
+                _split = !fsimilar(_val_outfit, _val_head, 0.005f);
+            }
+            else
+                _val_outfit = 1.0f - k_outfit * k_af_helm;
             _val_af = 0.0f;
         }
 
-        if (fsimilar(_val_outfit, 0.0f) && fsimilar(_val_af, 0.0f))
+        if (fsimilar(_val_outfit, 0.0f) && fsimilar(_val_af, 0.0f) && !_split)
         {
             continue;
         }
@@ -156,7 +181,8 @@ void CUIOutfitInfo::Update(CCustomOutfit* outfit)
 
         LPCSTR _imm_name = *CStringTable().translate(_imm_st_names[i]);
 
-        int _sz = sprintf_s(_buff, sizeof(_buff), "%s ", _imm_name);
+        int _sz = _split ? sprintf_s(_buff, sizeof(_buff), "%s (%s) ", _imm_name, *CStringTable().translate("ui_inv_prot_body"))
+                         : sprintf_s(_buff, sizeof(_buff), "%s ", _imm_name);
         _sz += sprintf_s(_buff + _sz, sizeof(_buff) - _sz, "%s %+3.0f%s", _color, _val_outfit, _sn);
 
         if (!fsimilar(_val_af, 0.0f))
@@ -167,6 +193,15 @@ void CUIOutfitInfo::Update(CCustomOutfit* outfit)
         _s->SetText(_buff);
 
         m_listWnd->AddWindow(_s, false);
+
+        if (_split && m_items_head[i])
+        {
+            _val_head *= 100.0f;
+            sprintf_s(_buff, sizeof(_buff), "%s (%s) %s %+3.0f%%", _imm_name, *CStringTable().translate("ui_inv_prot_head"), (_val_head > 0) ? "%c[green]" : "%c[red]",
+                      _val_head);
+            m_items_head[i]->SetText(_buff);
+            m_listWnd->AddWindow(m_items_head[i], false);
+        }
     }
 
     if (pSettings->line_exist("engine_callbacks", "ui_actor_info_callback"))

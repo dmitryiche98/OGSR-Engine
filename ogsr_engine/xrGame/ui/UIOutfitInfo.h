@@ -48,4 +48,6 @@ protected:
         _max_item_index,
     };
     CUIStatic* m_items[_max_item_index]{};
+    // "Загублений в Зоні": другий рядок "(голова)" для типів, від яких шолом захищає лише голову
+    CUIStatic* m_items_head[_max_item_index]{};
 };

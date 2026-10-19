@@ -255,6 +255,10 @@ public:
         HelmetParams();
         return IsHelmetHeadBone(bone);
     }
+    // чи захищає поточний костюм голову: вбудований шолом або outfit_protects_head
+    bool OutfitProtectsHead();
+    // костюм із вбудованим шоломом не пускає окремий шолом у слот
+    virtual bool CanPutInSlot(PIItem item, u32 slot) override;
 
 
     virtual void UpdateArtefactPanel();

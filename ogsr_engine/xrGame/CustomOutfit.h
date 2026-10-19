@@ -50,6 +50,9 @@ private:
     u32 m_artefact_count{};
 
 public:
+    // "Загублений в Зоні": костюм із вбудованим шоломом (СЕВА, екзоскелет...). Сам захищає голову і
+    // зношується від влучань у неї; окремий шолом з таким костюмом надіти не можна.
+    bool m_bBuiltInHelmet{};
     float m_additional_weight{};
     float m_additional_weight2{};
     shared_str m_NightVisionSect;

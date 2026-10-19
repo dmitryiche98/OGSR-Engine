@@ -70,6 +70,8 @@ void CCustomOutfit::Load(LPCSTR section)
     else
         m_fPowerLoss = 1.0f;
 
+    m_bBuiltInHelmet = READ_IF_EXISTS(pSettings, r_bool, section, "built_in_helmet", false);
+
     m_additional_weight = pSettings->r_float(section, "additional_inventory_weight");
     m_additional_weight2 = pSettings->r_float(section, "additional_inventory_weight2");
 
@@ -142,6 +144,14 @@ void CCustomOutfit::OnMoveToSlot()
                 g_player_hud->load_default();
 
             smart_cast<CUIGameSP*>(HUD().GetUI()->UIGame())->InventoryMenu->UpdateOutfit();
+
+            // костюм із вбудованим шоломом: окремий шолом знімаємо в рюкзак
+            if (m_bBuiltInHelmet)
+            {
+                PIItem helm = m_pCurrentInventory->m_slots[HELMET_SLOT].m_pIItem;
+                if (helm && m_pCurrentInventory->Ruck(helm))
+                    smart_cast<CUIGameSP*>(HUD().GetUI()->UIGame())->InventoryMenu->InitInventory_delayed();
+            }
         }
     }
 }

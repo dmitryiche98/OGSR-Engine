@@ -1964,3 +1964,22 @@ bool CActor::IsDetectorActive() const
 
     return false;
 }
+
+bool CActor::OutfitProtectsHead()
+{
+    const CCustomOutfit* outfit = GetOutfit();
+    if (!outfit)
+        return false;
+    return outfit->m_bBuiltInHelmet || HelmetParams().outfit_protects_head;
+}
+
+bool CActor::CanPutInSlot(PIItem item, u32 slot)
+{
+    if (slot == HELMET_SLOT)
+    {
+        const CCustomOutfit* outfit = GetOutfit();
+        if (outfit && outfit->m_bBuiltInHelmet)
+            return false;
+    }
+    return CInventoryOwner::CanPutInSlot(item, slot);
+}

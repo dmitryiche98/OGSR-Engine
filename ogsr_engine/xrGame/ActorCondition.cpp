@@ -678,11 +678,16 @@ float CActorCondition::HitOutfitEffect(float hit_power, ALife::EHitType hit_type
 {
     if (m_object->IsHelmetHeadHit(u16(element)))
     {
-        const auto& p = m_object->HelmetParams();
-        if (!p.outfit_protects_head)
-            return hit_power; // голову захищає тільки шолом
-        if (!p.outfit_wear_on_head)
-            wear = false;
+        const CCustomOutfit* outfit = m_object->GetOutfit();
+        // костюм із вбудованим шоломом сам захищає голову і зношується - як звичайно
+        if (!outfit || !outfit->m_bBuiltInHelmet)
+        {
+            const auto& p = m_object->HelmetParams();
+            if (!p.outfit_protects_head)
+                return hit_power; // голову захищає тільки шолом
+            if (!p.outfit_wear_on_head)
+                wear = false;
+        }
     }
     return inherited::HitOutfitEffect(hit_power, hit_type, element, AP, wear);
 }
