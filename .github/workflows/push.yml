@@ -14,14 +14,11 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        Configuration: [Debug, Release, ReleaseTracyProfiler]
+        # "Загублений в Зоні": збираємо лише Release, щоб не чекати втричі довше
+        Configuration: [Release]
         Platform: [x64]
         include:
-          - Configuration: Debug
-            ConfigurationReal: Debug
           - Configuration: Release
-            ConfigurationReal: Release
-          - Configuration: ReleaseTracyProfiler
             ConfigurationReal: Release
     steps:
     - uses: actions/checkout@v4.2.2

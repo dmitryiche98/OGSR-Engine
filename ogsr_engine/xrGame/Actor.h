@@ -221,7 +221,28 @@ public:
     virtual void UpdateArtefactsOnBelt();
 
     virtual ActorRestoreParams ActiveArtefactsOnBelt();
-    virtual float HitArtefactsOnBelt(float, ALife::EHitType, bool = false);
+    // bone/real_hit - "Загублений в Зоні": для реального хіта шолом перевіряє кістку (голова) і зношується.
+    // Без них (вікно захистів у інвентарі) шолом рахується так, ніби влучили в голову.
+    virtual float HitArtefactsOnBelt(float, ALife::EHitType, bool = false, u16 bone = u16(-1), bool real_hit = false);
+
+protected:
+    // Шолом ("Загублений в Зоні"): захист масштабується станом, частина типів хіта - лише в голову, знос від хітів.
+    // Налаштування - секція [helmet_protection] у system.ltx (config\misc\helmet_protection.ltx).
+    struct SHelmetParams
+    {
+        bool loaded{};
+        bool debug{};
+        bool head_only[ALife::eHitTypeMax]{};
+        float wear[ALife::eHitTypeMax]{};
+        float min_condition{};
+        xr_vector<shared_str> head_bones;
+    };
+    SHelmetParams m_helmet_params;
+    void LoadHelmetParams();
+    bool IsHelmetHeadBone(u16 bone);
+    float HelmetHitDelta(float hit_power, ALife::EHitType hit_type, u16 bone, bool real_hit);
+
+public:
 
     virtual void UpdateArtefactPanel();
 

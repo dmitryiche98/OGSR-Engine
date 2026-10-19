@@ -525,7 +525,7 @@ void CActor::Hit(SHit* pHDS)
 
     HitMark(HDS.damage(), HDS.dir, HDS.who, HDS.bone(), HDS.p_in_bone_space, HDS.impulse, HDS.hit_type);
 
-    float hit_power = HitArtefactsOnBelt(HDS.damage(), HDS.hit_type);
+    float hit_power = HitArtefactsOnBelt(HDS.damage(), HDS.hit_type, false, HDS.boneID, true);
 
     if (GodMode())
     {
@@ -1574,7 +1574,7 @@ void CActor::UpdateArtefactsOnBelt()
     callback(GameObject::eUpdateArtefactsOnBelt)(f_update_time);
 }
 
-float CActor::HitArtefactsOnBelt(float hit_power, ALife::EHitType hit_type, bool belt_only)
+float CActor::HitArtefactsOnBelt(float hit_power, ALife::EHitType hit_type, bool belt_only, u16 bone, bool real_hit)
 {
     float res_hit_power_k = 1.0f;
     float _af_count = 0.0f;
@@ -1590,24 +1590,132 @@ float CActor::HitArtefactsOnBelt(float hit_power, ALife::EHitType hit_type, bool
             }
         }
     }
-    // учет иммунитета от шлема
-    PIItem helm = inventory().m_slots[HELMET_SLOT].m_pIItem;
-    if (helm && !belt_only)
-    {
-        CArtefact* helmet = smart_cast<CArtefact*>(helm);
-        if (helmet)
-        {
-            if (!Core.Features.test(xrCore::Feature::af_zero_condition) || !fis_zero(helmet->GetCondition()))
-            {
-                res_hit_power_k += helmet->m_ArtefactHitImmunities.AffectHit(1.0f, hit_type);
-                _af_count += 1.0f;
-            }
-        }
-    }
 
     res_hit_power_k -= _af_count;
 
+    // учет иммунитета от шлема (масштабується станом, див. HelmetHitDelta)
+    if (!belt_only)
+        res_hit_power_k += HelmetHitDelta(hit_power, hit_type, bone, real_hit);
+
     return res_hit_power_k > 0 ? res_hit_power_k * hit_power : 0;
+}
+
+void CActor::LoadHelmetParams()
+{
+    SHelmetParams& p = m_helmet_params;
+    p.loaded = true;
+
+    constexpr LPCSTR sect = "helmet_protection";
+    if (!pSettings->section_exist(sect))
+        return; // без секції - як у рушії: шолом захищає все тіло, але вже з урахуванням стану
+
+    p.debug = READ_IF_EXISTS(pSettings, r_bool, sect, "debug", false);
+    p.min_condition = READ_IF_EXISTS(pSettings, r_float, sect, "min_condition", 0.0f);
+
+    for (int t = 0; t < ALife::eHitTypeMax; ++t)
+    {
+        LPCSTR name = get_token_name(ALife::hit_types_token, t);
+        if (!name || !name[0])
+            continue;
+        string128 key;
+        xr_sprintf(key, "wear_%s", name);
+        p.wear[t] = READ_IF_EXISTS(pSettings, r_float, sect, key, 0.0f);
+    }
+
+    string128 item;
+    if (pSettings->line_exist(sect, "head_only"))
+    {
+        LPCSTR list = pSettings->r_string(sect, "head_only");
+        const int n = _GetItemCount(list);
+        for (int k = 0; k < n; ++k)
+        {
+            _GetItem(list, k, item);
+            bool found = false;
+            for (int t = 0; t < ALife::eHitTypeMax; ++t)
+            {
+                LPCSTR name = get_token_name(ALife::hit_types_token, t);
+                if (name && !stricmp(name, item))
+                {
+                    p.head_only[t] = true;
+                    found = true;
+                }
+            }
+            if (!found)
+                Msg("! [helmet_protection] unknown hit type in head_only: [%s]", item);
+        }
+    }
+
+    if (pSettings->line_exist(sect, "head_bones"))
+    {
+        LPCSTR list = pSettings->r_string(sect, "head_bones");
+        const int n = _GetItemCount(list);
+        for (int k = 0; k < n; ++k)
+            p.head_bones.emplace_back(_GetItem(list, k, item));
+    }
+}
+
+bool CActor::IsHelmetHeadBone(u16 bone)
+{
+    if (bone == BI_NONE)
+        return false;
+    // кістки шукаємо щоразу: візуал актора змінюється разом із костюмом
+    IKinematics* K = smart_cast<IKinematics*>(Visual());
+    if (!K)
+        return false;
+    for (const auto& name : m_helmet_params.head_bones)
+        if (K->LL_BoneID(name) == bone)
+            return true;
+    return false;
+}
+
+// Внесок шолома в коефіцієнт хіта: (імунітет - 1) * стан, тобто <= 0.
+// real_hit: перевірка "лише в голову" і знос шолома.
+float CActor::HelmetHitDelta(float hit_power, ALife::EHitType hit_type, u16 bone, bool real_hit)
+{
+    PIItem helm = inventory().m_slots[HELMET_SLOT].m_pIItem;
+    if (!helm)
+        return 0.0f;
+    CArtefact* helmet = smart_cast<CArtefact*>(helm);
+    if (!helmet)
+        return 0.0f;
+
+    if (!m_helmet_params.loaded)
+        LoadHelmetParams();
+    const SHelmetParams& p = m_helmet_params;
+
+    const float imm = helmet->m_ArtefactHitImmunities.AffectHit(1.0f, hit_type);
+    if (imm >= 1.0f)
+        return 0.0f;
+
+    const float cond = helmet->GetCondition();
+    if (cond <= p.min_condition)
+    {
+        if (real_hit && p.debug)
+            Msg("[helmet] %s: helmet broken (cond %.3f)", get_token_name(ALife::hit_types_token, hit_type), cond);
+        return 0.0f;
+    }
+
+    if (real_hit && p.head_only[hit_type] && !IsHelmetHeadBone(bone))
+    {
+        if (p.debug)
+            Msg("[helmet] %s bone=%u power=%.3f: not head", get_token_name(ALife::hit_types_token, hit_type), bone, hit_power);
+        return 0.0f;
+    }
+
+    const float delta = (imm - 1.0f) * cond;
+
+    if (real_hit)
+    {
+        const float wear_mult = READ_IF_EXISTS(pSettings, r_float, helmet->cNameSect(), "helmet_wear_mult", 1.0f);
+        const float wear = hit_power * p.wear[hit_type] * wear_mult;
+        if (wear > 0.0f)
+            helmet->ChangeCondition(-wear);
+        if (p.debug)
+            Msg("[helmet] %s bone=%u power=%.3f k=%.3f cond %.3f -> %.3f", get_token_name(ALife::hit_types_token, hit_type), bone, hit_power, 1.0f + delta, cond,
+                helmet->GetCondition());
+    }
+
+    return delta;
 }
 
 Fvector CActor::GetMissileOffset() const { return m_vMissileOffset; }
