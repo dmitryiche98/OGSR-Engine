@@ -15,8 +15,6 @@ CUIOutfitInfo::~CUIOutfitInfo()
     {
         CUIStatic* _s = m_items[i];
         xr_delete(_s);
-        CUIStatic* _h = m_items_head[i];
-        xr_delete(_h);
     }
 }
 
@@ -72,13 +70,6 @@ void CUIOutfitInfo::InitFromXml(CUIXml& xml_doc)
             CUIStatic* _s = m_items[i];
             _s->SetAutoDelete(false);
             CUIXmlInit::InitStatic(xml_doc, _buff, 0, _s);
-
-            if (i >= _max_item_index1)
-            {
-                m_items_head[i] = xr_new<CUIStatic>();
-                m_items_head[i]->SetAutoDelete(false);
-                CUIXmlInit::InitStatic(xml_doc, _buff, 0, m_items_head[i]);
-            }
         }
     }
 }
@@ -109,8 +100,19 @@ void CUIOutfitInfo::Update(CCustomOutfit* outfit)
 
     m_listWnd->Clear(false); // clear existing items and do not scroll to top
 
-    for (u32 i = _item_start; i < _max_item_index; ++i)
+    // "Загублений в Зоні": порядок рядків - від найчастіших загроз до найрідших, далі відновлення від артефактів.
+    // Індекс захисту = _max_item_index1 + ALife::EHitType.
+    static const u32 s_order[_max_item_index] = {
+        _max_item_index1 + ALife::eHitTypeFireWound, _max_item_index1 + ALife::eHitTypeWound,     _max_item_index1 + ALife::eHitTypeStrike,
+        _max_item_index1 + ALife::eHitTypeExplosion, _max_item_index1 + ALife::eHitTypeRadiation, _max_item_index1 + ALife::eHitTypeBurn,
+        _max_item_index1 + ALife::eHitTypeChemicalBurn, _max_item_index1 + ALife::eHitTypeShock,  _max_item_index1 + ALife::eHitTypeTelepatic,
+        _item_health_restore_speed, _item_bleeding_restore_speed, _item_radiation_restore_speed, _item_power_restore_speed,
+        _item_satiety_restore_speed, _item_thirst_restore_speed, _item_psy_health_restore_speed,
+    };
+
+    for (u32 oi = 0; oi < _max_item_index; ++oi)
     {
+        const u32 i = s_order[oi];
         CUIStatic* _s = m_items[i];
 
         if (!_s)
@@ -181,9 +183,19 @@ void CUIOutfitInfo::Update(CCustomOutfit* outfit)
 
         LPCSTR _imm_name = *CStringTable().translate(_imm_st_names[i]);
 
-        int _sz = _split ? sprintf_s(_buff, sizeof(_buff), "%s (%s) ", _imm_name, *CStringTable().translate("ui_inv_prot_body"))
-                         : sprintf_s(_buff, sizeof(_buff), "%s ", _imm_name);
-        _sz += sprintf_s(_buff + _sz, sizeof(_buff) - _sz, "%s %+3.0f%s", _color, _val_outfit, _sn);
+        int _sz = 0;
+        if (_split)
+        {
+            // один рядок: "Назва: голова +50%, тіло +30%"
+            _val_head *= 100.0f;
+            _sz = sprintf_s(_buff, sizeof(_buff), "%s: %s %s%+.0f%%%s, %s %s%+.0f%%", _imm_name, *CStringTable().translate("ui_inv_prot_head"),
+                            (_val_head > 0) ? "%c[green]" : "%c[red]", _val_head, "%c[default]", *CStringTable().translate("ui_inv_prot_body"), _color, _val_outfit);
+        }
+        else
+        {
+            _sz = sprintf_s(_buff, sizeof(_buff), "%s ", _imm_name);
+            _sz += sprintf_s(_buff + _sz, sizeof(_buff) - _sz, "%s %+3.0f%s", _color, _val_outfit, _sn);
+        }
 
         if (!fsimilar(_val_af, 0.0f))
         {
@@ -193,15 +205,6 @@ void CUIOutfitInfo::Update(CCustomOutfit* outfit)
         _s->SetText(_buff);
 
         m_listWnd->AddWindow(_s, false);
-
-        if (_split && m_items_head[i])
-        {
-            _val_head *= 100.0f;
-            sprintf_s(_buff, sizeof(_buff), "%s (%s) %s %+3.0f%%", _imm_name, *CStringTable().translate("ui_inv_prot_head"), (_val_head > 0) ? "%c[green]" : "%c[red]",
-                      _val_head);
-            m_items_head[i]->SetText(_buff);
-            m_listWnd->AddWindow(m_items_head[i], false);
-        }
     }
 
     if (pSettings->line_exist("engine_callbacks", "ui_actor_info_callback"))
