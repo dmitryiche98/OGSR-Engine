@@ -10,7 +10,7 @@ on:
 jobs:
   build:
     if: "contains(github.event.head_commit.message, '[ci build]') || github.event_name == 'release'"
-    runs-on: windows-latest
+    runs-on: windows-2022  # як в upstream OGSR: на новому образі немає ATL (atlstr.h)
     strategy:
       fail-fast: false
       matrix:
