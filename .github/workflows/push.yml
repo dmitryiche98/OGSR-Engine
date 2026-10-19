@@ -38,7 +38,16 @@ jobs:
         set APPVEYOR_REPO_NAME=${{ github.repository }}
         set CONFIGURATION_GA=${{ matrix.Configuration }}
         
-        msbuild Engine.sln /t:Rebuild /p:Configuration=${{ matrix.ConfigurationReal }} /p:Platform=${{ matrix.Platform }}
+        msbuild Engine.sln /t:Rebuild /p:Configuration=${{ matrix.ConfigurationReal }} /p:Platform=${{ matrix.Platform }} /m /flp1:errorsonly;logfile=msbuild_errors.log /flp2:warningsonly;logfile=msbuild_warnings.log
+    - name: Report build errors as annotations
+      if: failure()
+      shell: pwsh
+      run: |
+        # "Загублений в Зоні": помилки компіляції видно в анотаціях запуску (без завантаження повного логу)
+        if (Test-Path msbuild_errors.log) {
+          Get-Content msbuild_errors.log | Select-Object -Unique -First 40 | ForEach-Object { Write-Output ("::error::" + $_) }
+        } else { Write-Output "::error::msbuild_errors.log not found" }
+        Get-ChildItem -Path . -Filter *.log | ForEach-Object { Write-Output ("::warning::log file " + $_.Name + " size " + $_.Length) }
     - name: Prepare artifacts
       shell: cmd
       run: |
