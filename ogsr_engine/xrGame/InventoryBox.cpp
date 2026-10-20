@@ -127,3 +127,12 @@ CScriptGameObject* IInventoryBox::GetObjectByIndex(u32 id)
 u32 IInventoryBox::GetSize() const { return m_items.size(); }
 
 bool IInventoryBox::IsEmpty() const { return m_items.empty(); }
+
+float IInventoryBox::TotalWeight() const
+{
+    float w = 0.f;
+    for (u16 id : m_items)
+        if (auto itm = smart_cast<PIItem>(Level().Objects.net_Find(id)))
+            w += itm->Weight();
+    return w;
+}

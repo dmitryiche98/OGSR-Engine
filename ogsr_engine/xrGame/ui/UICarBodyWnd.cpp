@@ -22,6 +22,7 @@
 #include "UI3tButton.h"
 #include "UIListBoxItem.h"
 #include "../InventoryBox.h"
+#include "../string_table.h"
 #include "../game_object_space.h"
 #include "../script_callback_ex.h"
 #include "../script_game_object.h"
@@ -95,6 +96,8 @@ void CUICarBodyWnd::Init()
     m_pUIOthersBagWnd->SetAutoDelete(true);
     AttachChild(m_pUIOthersBagWnd);
     xml_init.InitStatic(uiXml, "others_bag_static", 0, m_pUIOthersBagWnd);
+    m_sOthersBagText = m_pUIOthersBagWnd->GetText();
+    m_uOthersBagTextColor = m_pUIOthersBagWnd->GetTextColor();
 
     m_pUIOurBagList = xr_new<CUIDragDropListEx>();
     m_pUIOurBagList->SetAutoDelete(true);
@@ -165,6 +168,7 @@ void CUICarBodyWnd::InitCarBody(CInventoryOwner* pOur, IInventoryBox* pInvBox)
     m_pOthersObject = NULL;
     m_pInventoryBox = pInvBox;
     m_pInventoryBox->m_in_use = true;
+    m_bTrunkFull = false;
 
     u16 our_id = smart_cast<CGameObject*>(m_pOurObject)->ID();
     m_pUICharacterInfoLeft->InitCharacter(our_id);
@@ -295,7 +299,41 @@ void CUICarBodyWnd::UpdateLists()
     }
 
     InventoryUtilities::UpdateWeight(*m_pUIOurBagWnd);
+    UpdateTrunkWeight();
     m_b_need_update = false;
+}
+
+void CUICarBodyWnd::UpdateTrunkWeight()
+{
+    const float max = m_pInventoryBox ? m_pInventoryBox->MaxWeight() : 0.f;
+    if (max <= 0.f)
+    {
+        m_pUIOthersBagWnd->SetText(m_sOthersBagText.c_str());
+        m_pUIOthersBagWnd->SetTextColor(m_uOthersBagTextColor);
+        return;
+    }
+    const float total = m_pInventoryBox->TotalWeight();
+    string256 buf;
+    sprintf_s(buf, "%s %.1f / %.1f", CStringTable().translate("st_vehicle_trunk_weight").c_str(), total, max);
+    m_pUIOthersBagWnd->SetText(buf);
+    m_pUIOthersBagWnd->SetTextColor((m_bTrunkFull || total > max + EPS_L) ? color_argb(255, 255, 60, 60) : m_uOthersBagTextColor);
+}
+
+// чи вміститься предмет у багажник; pending - вага, вже відправлена в цьому ж кадрі (події ще не прийшли)
+bool CUICarBodyWnd::TrunkCanTake(PIItem itm, float& pending)
+{
+    const float max = m_pInventoryBox ? m_pInventoryBox->MaxWeight() : 0.f;
+    if (max <= 0.f)
+        return true;
+    const float w = itm->Weight();
+    if (m_pInventoryBox->TotalWeight() + pending + w > max + EPS_L)
+    {
+        m_bTrunkFull = true;
+        return false;
+    }
+    pending += w;
+    m_bTrunkFull = false;
+    return true;
 }
 
 void CUICarBodyWnd::SendMessage(CUIWindow* pWnd, s16 msg, void* pData)
@@ -476,6 +514,7 @@ void CUICarBodyWnd::SetCurrentItem(CUICellItem* itm)
 
 void CUICarBodyWnd::TakeAll()
 {
+    m_bTrunkFull = false;
     u32 cnt = m_pUIOthersBagList->ItemsCount();
     u16 tmp_id = 0;
     if (m_pInventoryBox)
@@ -520,29 +559,45 @@ void CUICarBodyWnd::MoveItems(CUICellItem* itm)
 
     if (owner_list != m_pUIOthersBagList)
     { // from actor to box
+        float pending = 0.f;
+        bool not_all = false;
         for (u32 j = 0; j < itm->ChildsCount(); ++j)
         {
             PIItem _itm = (PIItem)(itm->Child(j)->m_pData);
             if (m_pOthersObject)
                 TransferItem(_itm, m_pOurObject, m_pOthersObject, true);
-            else
+            else if (TrunkCanTake(_itm, pending))
             {
                 move_item(tmp_id, m_pInventoryBox->object().ID(), _itm->object().ID());
                 //. Actor()->callback(GameObject::eInvBoxItemTake)( m_pInventoryBox->lua_game_object(), _itm->object().lua_game_object() );
             }
+            else
+                not_all = true;
         }
 
         PIItem p_itm = (PIItem)(itm->m_pData);
         if (m_pOthersObject)
             TransferItem(p_itm, m_pOurObject, m_pOthersObject, true);
-        else
+        else if (TrunkCanTake(p_itm, pending))
         {
             move_item(tmp_id, m_pInventoryBox->object().ID(), p_itm->object().ID());
             //. Actor()->callback(GameObject::eInvBoxItemTake)(m_pInventoryBox->lua_game_object(), itm->object().lua_game_object() );
         }
+        else
+            not_all = true;
+
+        if (not_all)
+        {
+            // частина не влізла в багажник - списки перебудуються, коли прийдуть події
+            UpdateTrunkWeight();
+            UpdateLists_delayed();
+            SetCurrentItem(NULL);
+            return;
+        }
     }
     else
     { // from box to actor
+        m_bTrunkFull = false;
         for (u32 j = 0; j < itm->ChildsCount(); ++j)
         {
             PIItem _itm = (PIItem)(itm->Child(j)->m_pData);
@@ -860,6 +915,8 @@ void CUICarBodyWnd::MoveItem(CUICellItem* itm)
     PIItem p_itm = (PIItem)itm->m_pData;
 
     bool bMoveDirection = (old_owner == m_pUIOthersBagList);
+    if (bMoveDirection)
+        m_bTrunkFull = false;
 
     if (m_pOthersObject)
     {
@@ -872,6 +929,13 @@ void CUICarBodyWnd::MoveItem(CUICellItem* itm)
     else
     {
         u16 tmp_id = (smart_cast<CGameObject*>(m_pOurObject))->ID();
+
+        float pending = 0.f;
+        if (!bMoveDirection && !TrunkCanTake(p_itm, pending))
+        {
+            UpdateTrunkWeight();
+            return;
+        }
 
         move_item(bMoveDirection ? m_pInventoryBox->object().ID() : tmp_id, bMoveDirection ? tmp_id : m_pInventoryBox->object().ID(), p_itm->object().ID());
 

@@ -15,6 +15,8 @@
 #include "..\Include/xrRender/Kinematics.h"
 #include "..\Include/xrRender/KinematicsAnimated.h"
 #include "PHShellSplitter.h"
+#include "HUDManager.h"
+#include "UIGameSP.h"
 
 #include "actor_anim_defs.h"
 #include "game_object_space.h"
@@ -138,7 +140,14 @@ bool CActor::use_Vehicle(CHolderCustom* object)
 
             else if (auto car = smart_cast<CCar*>(vehicle))
             {
-                this->callback(GameObject::eUseVehicle)(car->lua_game_object());
+                // "Загублений в Зоні": позаду машини - відкрити багажник
+                if (car->CanOpenTrunk(Position()))
+                {
+                    if (auto pGameSP = smart_cast<CUIGameSP*>(HUD().GetUI()->UIGame()))
+                        pGameSP->StartCarBody(this, static_cast<IInventoryBox*>(car));
+                }
+                else
+                    this->callback(GameObject::eUseVehicle)(car->lua_game_object());
             }
 
             return true;

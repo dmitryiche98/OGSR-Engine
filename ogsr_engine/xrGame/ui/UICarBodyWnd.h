@@ -89,6 +89,13 @@ protected:
     void MoveItems(CUICellItem* itm);
     void DropItemsfromCell(bool b_all);
 
+    // "Загублений в Зоні": багажник машини з обмеженням ваги (IInventoryBox::MaxWeight)
+    shared_str m_sOthersBagText;
+    u32 m_uOthersBagTextColor{};
+    bool m_bTrunkFull{};
+    void UpdateTrunkWeight();
+    bool TrunkCanTake(PIItem itm, float& pending);
+
     bool OnItemDrop(CUICellItem* itm);
     bool OnItemStartDrag(CUICellItem* itm);
     bool OnItemDbClick(CUICellItem* itm);

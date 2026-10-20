@@ -87,8 +87,9 @@ void CALifeSwitchManager::remove_online(CSE_ALifeDynamicObject* object, bool upd
     CSE_ALifeTraderAbstract* inventory_owner = smart_cast<CSE_ALifeTraderAbstract*>(object);
     CSE_InventoryBox* inventory_box = smart_cast<CSE_InventoryBox*>(object);
     CSE_InventoryContainer* inventory_cont = smart_cast<CSE_InventoryContainer*>(object);
+    CSE_ALifeCar* car = smart_cast<CSE_ALifeCar*>(object);
 
-    if (inventory_owner || inventory_box || inventory_cont)
+    if (inventory_owner || inventory_box || inventory_cont || car)
     {
         m_saved_chidren.erase(std::remove_if(m_saved_chidren.begin(), m_saved_chidren.end(), remove_non_savable_predicate(&server())), m_saved_chidren.end());
     }

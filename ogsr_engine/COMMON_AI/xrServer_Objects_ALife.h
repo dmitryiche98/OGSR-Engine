@@ -436,6 +436,11 @@ virtual bool used_ai_locations() const;
 virtual void load(NET_Packet& tNetPacket);
 virtual bool can_save() const;
 virtual CSE_Abstract* cast_abstract() { return this; }
+#ifdef XRGAME_EXPORTS
+// багажник: предмети-нащадки машини переходять онлайн/офлайн разом з нею (як у CSE_InventoryBox)
+virtual void add_online(const bool& update_registries);
+virtual void add_offline(const xr_vector<ALife::_OBJECT_ID>& saved_children, const bool& update_registries);
+#endif
 
 protected:
 virtual void data_load(NET_Packet& tNetPacket);

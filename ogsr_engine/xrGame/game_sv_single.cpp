@@ -69,7 +69,8 @@ void game_sv_Single::OnCreate(u16 id_who)
             CSE_InventoryBoxAbstract* box = smart_cast<CSE_InventoryBoxAbstract*>(parent);
             CSE_ALifeMonsterAbstract* monster = smart_cast<CSE_ALifeMonsterAbstract*>(parent);
             CSE_ALifeTraderAbstract* trader = smart_cast<CSE_ALifeTraderAbstract*>(parent);
-            if (box || monster || trader)
+            CSE_ALifeCar* car = smart_cast<CSE_ALifeCar*>(parent); // багажник машини
+            if (box || monster || trader || car)
                 alife().create(alife_object);
             else
                 alife_object->m_bALifeControl = false;

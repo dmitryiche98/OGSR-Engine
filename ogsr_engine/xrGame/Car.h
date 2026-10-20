@@ -16,6 +16,7 @@
 #include "Explosive.h"
 #include "PHDestroyable.h"
 #include "DelayedActionFuse.h"
+#include "InventoryBox.h"
 // refs
 class ENGINE_API CBoneInstance;
 class CActor;
@@ -44,7 +45,8 @@ class CCar : public CEntity,
              public CPHCollisionDamageReceiver,
              public CHitImmunity,
              public CExplosive,
-             public CDelayedActionFuse
+             public CDelayedActionFuse,
+             public IInventoryBox // багажник
 {
 private:
     collide::rq_results RQR;
@@ -589,8 +591,13 @@ public:
     CCameraBase* Camera() { return active_camera; }
     void SetExplodeTime(u32 et);
     u32 ExplodeTime();
-    // Inventory for the car
-    CInventory* GetInventory() { return inventory; }
+    // Багажник (IInventoryBox): відкривається дією "використати" позаду машини
+    virtual CGameObject& object() override { return *this; }
+    virtual bool IsOpened() const override { return false; } // не відкривати як звичайний ящик (див. CActor::use_Vehicle)
+    virtual CInventoryItem* cast_inventory_item() override { return nullptr; }
+    virtual float MaxWeight() const override { return m_trunk_max_weight; }
+    bool HasTrunk() const { return m_trunk_max_weight > 0.f; }
+    bool CanOpenTrunk(const Fvector& actor_pos);
     void VisualUpdate(float fov = 90.0f);
 
 protected:
@@ -620,8 +627,11 @@ private:
     IC void fill_exhaust_vector(LPCSTR S, xr_vector<SExhaust>& exhausts);
     IC void fill_doors_map(LPCSTR S, xr_map<u16, SDoor>& doors);
 
-    // Inventory for the car
-    CInventory* inventory;
+    // Багажник
+    float m_trunk_max_weight{};
+    float m_trunk_behind_cos{0.5f};
+    void LoadTrunkParams();
+    Fvector TrunkDropPoint();
 
     virtual void reinit();
     virtual void reload(LPCSTR section);

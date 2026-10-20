@@ -21,6 +21,17 @@ void CUICarPanel::Init(float x, float y, float width, float height)
     //.	xml_init.InitAutoStaticGroup(uiXml,"car_health_static", &UIStaticCarHealth);
     xml_init.InitProgressBar(uiXml, "car_health_progress_bar", 0, &UICarHealthBar);
 
+    // шкала бензину: координати в car_fuel.xml - відносно car_panel
+    CUIXml fuelXml;
+    if (fuelXml.Init(CONFIG_PATH, UI_PATH, "car_fuel.xml") && fuelXml.NavigateToNode("fuel_static", 0) && fuelXml.NavigateToNode("fuel_progress_bar", 0))
+    {
+        AttachChild(&UIStaticCarFuel);
+        xml_init.InitStatic(fuelXml, "fuel_static", 0, &UIStaticCarFuel);
+        AttachChild(&UICarFuelBar);
+        xml_init.InitProgressBar(fuelXml, "fuel_progress_bar", 0, &UICarFuelBar);
+        m_bFuel = true;
+    }
+
     /*
         AttachChild(&UISpeedometer);
         xml_init.InitStatic(uiXml, "speedometer", 0, &UISpeedometer);
@@ -45,6 +56,17 @@ void CUICarPanel::SetCarHealth(float value)
     float pos = value * 100;
     clamp(pos, 0.0f, 100.0f);
     UICarHealthBar.SetProgressPos(pos);
+}
+
+//////////////////////////////////////////////////////////////////////////
+
+void CUICarPanel::SetCarFuel(float value)
+{
+    if (!m_bFuel)
+        return;
+    float pos = value * 100;
+    clamp(pos, 0.0f, 100.0f);
+    UICarFuelBar.SetProgressPos(pos);
 }
 
 //////////////////////////////////////////////////////////////////////////

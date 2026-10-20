@@ -76,9 +76,6 @@ CCar::CCar()
     m_exhaust_particles = "vehiclefx\\exhaust_1";
     m_car_sound = xr_new<SCarSound>(this);
 
-    //у машины слотов в инвентаре нет
-    inventory = xr_new<CInventory>();
-    inventory->SetSlotsUseful(false);
     m_doors_torque_factor = 2.f;
     m_power_increment_factor = 0.5f;
     m_rpm_increment_factor = 0.5f;
@@ -108,7 +105,6 @@ CCar::~CCar(void)
     xr_delete(camera[2]);
     xr_delete(m_car_sound);
     ClearExhausts();
-    xr_delete(inventory);
     xr_delete(m_car_weapon);
     xr_delete(m_memory);
     //	xr_delete			(l_tpEntityAction);
@@ -198,7 +194,90 @@ BOOL CCar::net_Spawn(CSE_Abstract* DC)
 
     renderable.visual->ignore_optimization = true;
 
+    LoadTrunkParams();
+
     return (CScriptEntity::net_Spawn(DC) && R);
+}
+
+//////////////////////////////////////////////////////////////////////////
+// "Загублений в Зоні": багажник
+//////////////////////////////////////////////////////////////////////////
+
+static shared_str normalize_visual_name(LPCSTR v)
+{
+    string_path buf;
+    strcpy_s(buf, v ? v : "");
+    _strlwr(buf);
+    for (char* c = buf; *c; ++c)
+        if (*c == '/')
+            *c = '\\';
+    if (const size_t n = xr_strlen(buf); n > 4 && !xr_strcmp(buf + n - 4, ".ogf"))
+        buf[n - 4] = 0;
+    return buf;
+}
+
+// max_trunk_weight / trunk_behind_cos беруться з секції машини; якщо в секції їх немає (напр. m_car),
+// то з будь-якої секції машини з тим самим візуалом (vehicle_niva тощо)
+void CCar::LoadTrunkParams()
+{
+    m_trunk_max_weight = 0.f;
+    m_trunk_behind_cos = 0.5f;
+
+    LPCSTR sect = cNameSect().c_str();
+    if (!pSettings->line_exist(sect, "max_trunk_weight"))
+    {
+        sect = nullptr;
+        const shared_str my_visual = normalize_visual_name(cNameVisual().c_str());
+        for (const auto& it : pSettings->sections())
+        {
+            LPCSTR name = it.first.c_str();
+            if (!pSettings->line_exist(name, "max_trunk_weight") || !pSettings->line_exist(name, "visual") || !pSettings->line_exist(name, "class"))
+                continue;
+            const CLASS_ID cls = TEXT2CLSID(pSettings->r_string(name, "class"));
+            if (cls != CLS_ID)
+                continue;
+            if (normalize_visual_name(pSettings->r_string(name, "visual")) == my_visual)
+            {
+                sect = name;
+                break;
+            }
+        }
+    }
+
+    if (sect)
+    {
+        m_trunk_max_weight = pSettings->r_float(sect, "max_trunk_weight");
+        m_trunk_behind_cos = READ_IF_EXISTS(pSettings, r_float, sect, "trunk_behind_cos", m_trunk_behind_cos);
+    }
+}
+
+bool CCar::CanOpenTrunk(const Fvector& actor_pos)
+{
+    if (!HasTrunk() || GetfHealth() <= 0.f)
+        return false;
+    const Fvector& dir = XFORM().k;
+    Fvector to_actor;
+    to_actor.sub(actor_pos, Position());
+    to_actor.y = 0.f;
+    const float len = to_actor.magnitude();
+    if (len < EPS_L)
+        return false;
+    return dir.x * to_actor.x + dir.z * to_actor.z < -m_trunk_behind_cos * len;
+}
+
+// куди падає предмет, викинутий з багажника: біля актора, якщо він поруч, інакше позаду машини
+Fvector CCar::TrunkDropPoint()
+{
+    Fvector p;
+    if (Actor() && Actor()->Position().distance_to(Position()) < 10.f)
+    {
+        p.set(Actor()->Position());
+        p.y += 1.f;
+        return p;
+    }
+    p.mad(Position(), XFORM().k, -Radius());
+    p.y += 1.5f;
+    return p;
 }
 
 void CCar::ActorObstacleCallback(bool& do_colide, bool bo1, dContact& c, SGameMtl* material_1, SGameMtl* material_2)
@@ -240,6 +319,7 @@ void CCar::net_Destroy()
     if (!Level().is_removing_objects())
         if (CActor* driver = smart_cast<CActor*>(Owner()))
             driver->detach_Vehicle();
+    m_items.clear(); // вміст багажника знищується сервером разом з машиною
     IKinematics* pKinematics = smart_cast<IKinematics*>(Visual());
     if (m_bone_steer != BI_NONE)
     {
@@ -524,6 +604,7 @@ void CCar::VisualUpdate(float fov)
             HUD().GetUI()->UIMainIngameWnd->CarPanel().SetCarHealth(GetfHealth() /* /100.f*/);
             HUD().GetUI()->UIMainIngameWnd->CarPanel().SetSpeed(lin_vel.magnitude() / 1000.f * 3600.f / 100.f);
             HUD().GetUI()->UIMainIngameWnd->CarPanel().SetRPM(m_current_rpm / m_max_rpm / 2.f);
+            HUD().GetUI()->UIMainIngameWnd->CarPanel().SetCarFuel(m_fuel_tank > 0.f ? m_fuel / m_fuel_tank : 0.f);
         }
     }
 
@@ -1685,53 +1766,20 @@ void CCar::OnEvent(NET_Packet& P, u16 type)
     inherited::OnEvent(P, type);
     CExplosive::OnEvent(P, type);
 
-    //обработка сообщений, нужных для работы с багажником машины
-    u16 id;
-    switch (type)
+    // багажник: предмет, що випадає з багажника на землю, ставимо біля актора (інакше він опиняється всередині кузова)
+    if (type == GE_OWNERSHIP_REJECT)
     {
-    case GE_OWNERSHIP_TAKE:
-    case GE_TRANSFER_TAKE: {
+        const u32 pos = P.r_tell();
+        u16 id;
         P.r_u16(id);
-        CObject* O = Level().Objects.net_Find(id);
-        if (GetInventory()->CanTakeItem(smart_cast<CInventoryItem*>(O)))
-        {
-            O->H_SetParent(this);
-            GetInventory()->Take(smart_cast<CGameObject*>(O), false, false);
-        }
-        else
-        {
-            if (!O || !O->H_Parent() || (this != O->H_Parent()))
-                return;
-            NET_Packet _P;
-            u_EventGen(_P, GE_OWNERSHIP_REJECT, ID());
-            _P.w_u16(u16(O->ID()));
-            u_EventSend(_P);
-        }
-    }
-    break;
-    case GE_OWNERSHIP_REJECT:
-    case GE_TRANSFER_REJECT: {
-        P.r_u16(id);
-        CObject* O = Level().Objects.net_Find(id);
-
-        if (!O)
-        {
-            Msg("! [%s] Error: No object to reject/sell [%u]", __FUNCTION__, id);
-            break;
-        }
-
         bool just_before_destroy = !P.r_eof() && P.r_u8();
-        bool dont_create_shell = (type == GE_TRADE_SELL) || (type == GE_TRANSFER_REJECT) || just_before_destroy;
-
-        O->SetTmpPreDestroy(just_before_destroy);
-
-        if (GetInventory()->DropItem(smart_cast<CGameObject*>(O)))
-        {
-            O->H_SetParent(0, dont_create_shell);
-        }
+        P.r_seek(pos);
+        if (!just_before_destroy)
+            if (CObject* O = Level().Objects.net_Find(id); O && O->H_Parent() == this)
+                O->XFORM().c.set(TrunkDropPoint());
     }
-    break;
-    }
+
+    IInventoryBox::ProcessEvent(this, P, type);
 }
 
 void CCar::ResetScriptData(void* P) { CScriptEntity::ResetScriptData(P); }

@@ -251,3 +251,16 @@ void CSE_ALifeTraderAbstract::add_offline(const xr_vector<ALife::_OBJECT_ID>& sa
     VERIFY(object);
     add_offline_impl(object, saved_children, update_registries);
 }
+
+// Багажник машини: нащадки (предмети) переходять онлайн/офлайн разом з машиною, як у CSE_InventoryBox.
+void CSE_ALifeCar::add_online(const bool& update_registries)
+{
+    add_online_impl(this, update_registries);
+    CSE_ALifeDynamicObjectVisual::add_online(update_registries);
+}
+
+void CSE_ALifeCar::add_offline(const xr_vector<ALife::_OBJECT_ID>& saved_children, const bool& update_registries)
+{
+    add_offline_impl(this, saved_children, update_registries);
+    CSE_ALifeDynamicObjectVisual::add_offline(saved_children, update_registries);
+}

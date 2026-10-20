@@ -22,6 +22,10 @@ public:
     virtual CInventoryItem* cast_inventory_item() { return NULL; }
     virtual CGameObject& object() = 0;
     virtual bool IsOpened() const { return true; }
+
+    // Обмеження ваги вмісту (0 - без обмеження). Використовується багажником машини.
+    virtual float MaxWeight() const { return 0.f; }
+    float TotalWeight() const;
 };
 
 template <class Based>
