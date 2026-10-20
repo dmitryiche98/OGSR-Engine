@@ -172,11 +172,7 @@ void CCar::OnKeyboardPress(int cmd)
         auto* Act = OwnerActor();
         if (Act)
         {
-            auto* pTorch = smart_cast<CTorch*>(Act->inventory().ItemFromSlot(TORCH_SLOT));
-            if (pTorch)
-            {
-                pTorch->SwitchNightVision();
-            }
+            Act->SwitchNightVision(); // ПНВ - у шоломі/костюмі, не в ліхтарі
         }
     }
     break;

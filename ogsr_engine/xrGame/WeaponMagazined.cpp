@@ -613,8 +613,7 @@ void CWeaponMagazined::DeviceUpdate()
         }
         else if (NightVisionSwitch)
         {
-            if (auto pActorTorch = smart_cast<CTorch*>(pA->inventory().ItemFromSlot(TORCH_SLOT)))
-                pActorTorch->SwitchNightVision();
+            pA->SwitchNightVision(); // ПНВ - у шоломі/костюмі, не в ліхтарі
             NightVisionSwitch = false;
         }
     }
@@ -1055,8 +1054,7 @@ bool CWeaponMagazined::Action(s32 cmd, u32 flags)
     break;
     case kNIGHT_VISION: {
         auto pActor = smart_cast<CActor*>(H_Parent());
-        auto pActorNv = pActor->inventory().ItemFromSlot(IS_OGSR_GA ? NIGHT_VISION_SLOT : TORCH_SLOT);
-        if ((flags & CMD_START) && pActorNv && GetState() == eIdle && !pActor->IsZoomAimingMode())
+        if ((flags & CMD_START) && pActor->NightVisionAvailable() && GetState() == eIdle && !pActor->IsZoomAimingMode())
         {
             NightVisionSwitch = true;
             DeviceSwitch();

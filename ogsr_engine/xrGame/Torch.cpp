@@ -108,94 +108,21 @@ void CTorch::Load(LPCSTR section)
     m_min_target_dist = READ_IF_EXISTS(pSettings, r_float, section, "camera_min_target_dist", m_min_target_dist);
 }
 
+// "Загублений в Зоні": ПНВ більше не в ліхтарі - він у шоломі або костюмі з вбудованим шоломом
+// (CActor::SwitchNightVision). Методи лишаються для скриптів (enable_nvd / switch_nvd).
 void CTorch::SwitchNightVision()
 {
-    SwitchNightVision(!m_bNightVisionOn);
+    if (auto* pA = smart_cast<CActor*>(H_Parent()))
+        pA->SwitchNightVision();
 }
 
 void CTorch::SwitchNightVision(bool vision_on)
 {
-    if (!m_bNightVisionEnabled)
-    {
-        m_bNightVisionOn = vision_on;
-        return;
-    }
-
-    auto* pA = smart_cast<CActor*>(H_Parent());
-    if (!pA)
-        return;
-
-    auto* pActorTorch = smart_cast<CTorch*>(pA->inventory().ItemFromSlot(TORCH_SLOT));
-    if (pActorTorch && pActorTorch != this)
-        return;
-
-    bool bPlaySoundFirstPerson = (pA == Level().CurrentViewEntity());
-
-    auto* pCO = pA->GetOutfit();
-    if (pCO && pCO->m_NightVisionSect.size())
-    {
-        const char* disabled_names = pSettings->r_string(cNameSect(), "disabled_maps");
-        const char* curr_map = Level().name().c_str();
-        u32 cnt = _GetItemCount(disabled_names);
-        bool b_allow = true;
-        string512 tmp;
-        for (u32 i = 0; i < cnt; ++i)
-        {
-            _GetItem(disabled_names, i, tmp);
-            if (!stricmp(tmp, curr_map))
-            {
-                b_allow = false;
-                break;
-            }
-        }
-
-        if (!b_allow)
-        {
-            HUD_SOUND::PlaySound(m_NightVisionBrokenSnd, pA->Position(), pA, bPlaySoundFirstPerson);
-            return;
-        }
-        else
-        {
-            m_bNightVisionOn = vision_on;
-
-            if (m_bNightVisionOn)
-            {
-                CEffectorPP* pp = pA->Cameras().GetPPEffector((EEffectorPPType)effNightvision);
-                if (!pp)
-                {
-                    AddEffector(pA, effNightvision, pCO->m_NightVisionSect);
-                    HUD_SOUND::PlaySound(m_NightVisionOnSnd, pA->Position(), pA, bPlaySoundFirstPerson);
-                    HUD_SOUND::PlaySound(m_NightVisionIdleSnd, pA->Position(), pA, bPlaySoundFirstPerson, true);
-                }
-            }
-        }
-    }
-    else
-    {
-        m_bNightVisionOn = false;
-    }
-
-    if (!m_bNightVisionOn)
-    {
-        CEffectorPP* pp = pA->Cameras().GetPPEffector((EEffectorPPType)effNightvision);
-        if (pp)
-        {
-            pp->Stop(1.0f);
-            HUD_SOUND::PlaySound(m_NightVisionOffSnd, pA->Position(), pA, bPlaySoundFirstPerson);
-            HUD_SOUND::StopSound(m_NightVisionIdleSnd);
-        }
-    }
+    if (auto* pA = smart_cast<CActor*>(H_Parent()))
+        pA->SwitchNightVision(vision_on);
 }
 
-void CTorch::UpdateSwitchNightVision()
-{
-    if (!m_bNightVisionEnabled)
-        return;
-
-    auto* pA = smart_cast<CActor*>(H_Parent());
-    if (pA && m_bNightVisionOn && !pA->Cameras().GetPPEffector((EEffectorPPType)effNightvision))
-        SwitchNightVision(true);
-}
+void CTorch::UpdateSwitchNightVision() {}
 
 void CTorch::Switch()
 {
@@ -312,7 +239,6 @@ BOOL CTorch::net_Spawn(CSE_Abstract* DC)
 void CTorch::net_Destroy()
 {
     Switch(false);
-    SwitchNightVision(false);
 
     inherited::net_Destroy();
 }
@@ -329,7 +255,6 @@ void CTorch::OnH_B_Independent(bool just_before_destroy)
     time2hide = TIME_2_HIDE;
 
     Switch(false);
-    SwitchNightVision(false);
 
     HUD_SOUND::StopSound(m_NightVisionOnSnd);
     HUD_SOUND::StopSound(m_NightVisionOffSnd);

@@ -23,6 +23,9 @@ enum : u32
     NO_ACTIVE_SLOT = 255
 };
 
+// "Загублений в Зоні": слот ПНВ (у нашій збірці без OGSR_GA вільний) використовується під рюкзак
+constexpr u32 BACKPACK_SLOT = NIGHT_VISION_SLOT;
+
 #define RUCK_HEIGHT 280
 #define RUCK_WIDTH 7
 

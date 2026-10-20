@@ -53,6 +53,16 @@ public:
     // "Загублений в Зоні": костюм із вбудованим шоломом (СЕВА, екзоскелет...). Сам захищає голову і
     // зношується від влучань у неї; окремий шолом з таким костюмом надіти не можна.
     bool m_bBuiltInHelmet{};
+    // захист голови костюма з вбудованим шоломом (< 0 - брати з bones_koeff_protection / *_protection тіла)
+    float m_fHeadFireWoundArmour{-1.f}; // head_fire_wound_armour - броня голови від куль
+    float m_fHeadStrikeProtection{-1.f}; // head_strike_protection
+    float m_fHeadWoundProtection{-1.f}; // head_wound_protection
+    // хіт у кістку голови костюма з вбудованим шоломом
+    float HeadHitThruArmour(float hit_power, s16 element, float AP);
+    float GetHeadHitTypeProtection(ALife::EHitType hit_type, s16 element);
+    // броня від куль без урахування стану (для вікна захистів)
+    float GetBoneArmourRaw(s16 bone);
+    float GetHeadArmourRaw(s16 head_bone);
     float m_additional_weight{};
     float m_additional_weight2{};
     shared_str m_NightVisionSect;

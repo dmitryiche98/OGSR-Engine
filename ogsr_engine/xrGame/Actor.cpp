@@ -201,6 +201,10 @@ CActor::CActor() : CEntityAlive(), current_ik_cam_shift(0)
 
 CActor::~CActor()
 {
+    HUD_SOUND::DestroySound(m_NightVisionOnSnd);
+    HUD_SOUND::DestroySound(m_NightVisionOffSnd);
+    HUD_SOUND::DestroySound(m_NightVisionIdleSnd);
+    HUD_SOUND::DestroySound(m_NightVisionBrokenSnd);
     xr_delete(m_location_manager);
 
     xr_delete(m_memory);
@@ -526,6 +530,7 @@ void CActor::Hit(SHit* pHDS)
     HitMark(HDS.damage(), HDS.dir, HDS.who, HDS.bone(), HDS.p_in_bone_space, HDS.impulse, HDS.hit_type);
 
     float hit_power = HitArtefactsOnBelt(HDS.damage(), HDS.hit_type, false, HDS.boneID, true);
+    hit_power = HelmetBulletArmour(hit_power, HDS.hit_type, HDS.boneID, HDS.ap); // кулі в голову - броня шолома
 
     if (GodMode())
     {
@@ -792,6 +797,8 @@ void CActor::UpdateCL()
     }
 
     m_snd_noise -= 0.3f * Device.fTimeDelta;
+
+    UpdateNightVision();
 
     VERIFY2(_valid(renderable.xform), *cName());
     inherited::UpdateCL();
@@ -1664,6 +1671,10 @@ bool CActor::IsHelmetHeadBone(u16 bone)
 // real_hit: перевірка "лише в голову" і знос шолома.
 float CActor::HelmetHitDelta(float hit_power, ALife::EHitType hit_type, u16 bone, bool real_hit)
 {
+    // кулі шолом зупиняє бронею (HelmetBulletArmour), а не коефіцієнтом
+    if (hit_type == ALife::eHitTypeFireWound)
+        return 0.0f;
+
     PIItem helm = inventory().m_slots[HELMET_SLOT].m_pIItem;
     if (!helm)
         return 0.0f;
@@ -1982,4 +1993,161 @@ bool CActor::CanPutInSlot(PIItem item, u32 slot)
             return false;
     }
     return CInventoryOwner::CanPutInSlot(item, slot);
+}
+
+float CActor::HelmetBulletArmour(float hit_power, ALife::EHitType hit_type, u16 bone, float AP)
+{
+    if (hit_type != ALife::eHitTypeFireWound)
+        return hit_power;
+    PIItem helm = inventory().m_slots[HELMET_SLOT].m_pIItem;
+    CArtefact* helmet = smart_cast<CArtefact*>(helm);
+    if (!helmet)
+        return hit_power;
+    const SHelmetParams& p = HelmetParams();
+    if (!IsHelmetHeadBone(bone))
+        return hit_power;
+
+    const float cond = helmet->GetCondition();
+    // знос - як у костюма: сила хіта * коефіцієнт з immunities_sect шолома
+    const float wear = hit_power * helm->immunities()[hit_type];
+    if (wear > 0.0f)
+        helmet->ChangeCondition(-wear);
+
+    if (cond <= p.min_condition)
+    {
+        if (p.debug)
+            Msg("[helmet] fire_wound bone=%u power=%.3f: helmet broken (cond %.3f)", bone, hit_power, cond);
+        return hit_power;
+    }
+
+    const float armour_raw = READ_IF_EXISTS(pSettings, r_float, helmet->cNameSect(), "fire_wound_armour", 0.0f);
+    if (armour_raw <= 0.0f)
+    {
+        if (p.debug)
+            Msg("[helmet] fire_wound bone=%u power=%.3f: no armour, cond %.3f -> %.3f", bone, hit_power, cond, helmet->GetCondition());
+        return hit_power;
+    }
+    const float frac = READ_IF_EXISTS(pSettings, r_float, helmet->cNameSect(), "hit_fraction", 0.1f);
+    const float ap = AP < 0.0f ? 0.0f : (AP > 1.0f ? 1.0f : AP);
+    const float armour = armour_raw * cond * (1.0f - ap);
+    float result = hit_power - armour;
+    if (result < hit_power * frac)
+        result = hit_power * frac;
+
+    if (p.debug)
+        Msg("[helmet] fire_wound bone=%u power=%.3f ap=%.2f armour=%.3f -> %.3f, cond %.3f -> %.3f", bone, hit_power, ap, armour, result, cond, helmet->GetCondition());
+    return result;
+}
+
+float CActor::HelmetBulletArmourValue()
+{
+    CArtefact* helmet = smart_cast<CArtefact*>(inventory().m_slots[HELMET_SLOT].m_pIItem);
+    if (!helmet || helmet->GetCondition() <= HelmetParams().min_condition)
+        return 0.0f;
+    return READ_IF_EXISTS(pSettings, r_float, helmet->cNameSect(), "fire_wound_armour", 0.0f) * helmet->GetCondition();
+}
+
+//----------------------------------------------------------------------------------------------------
+// ПНВ ("Загублений в Зоні")
+
+shared_str CActor::NightVisionSect()
+{
+    if (PIItem helm = inventory().m_slots[HELMET_SLOT].m_pIItem)
+    {
+        const shared_str& sect = helm->object().cNameSect();
+        if (pSettings->line_exist(sect, "nightvision_sect"))
+            return pSettings->r_string(sect, "nightvision_sect");
+    }
+    // ПНВ костюма - лише якщо в нього вбудований шолом
+    const CCustomOutfit* outfit = GetOutfit();
+    if (outfit && outfit->m_bBuiltInHelmet && outfit->m_NightVisionSect.size())
+        return outfit->m_NightVisionSect;
+    return shared_str();
+}
+
+void CActor::LoadNightVisionSounds()
+{
+    if (m_bNightVisionSndLoaded)
+        return;
+    m_bNightVisionSndLoaded = true;
+    constexpr LPCSTR sect = "actor_night_vision";
+    if (!pSettings->section_exist(sect))
+        return;
+    if (pSettings->line_exist(sect, "snd_night_vision_on"))
+        HUD_SOUND::LoadSound(sect, "snd_night_vision_on", m_NightVisionOnSnd, SOUND_TYPE_ITEM_USING);
+    if (pSettings->line_exist(sect, "snd_night_vision_off"))
+        HUD_SOUND::LoadSound(sect, "snd_night_vision_off", m_NightVisionOffSnd, SOUND_TYPE_ITEM_USING);
+    if (pSettings->line_exist(sect, "snd_night_vision_idle"))
+        HUD_SOUND::LoadSound(sect, "snd_night_vision_idle", m_NightVisionIdleSnd, SOUND_TYPE_ITEM_USING);
+    if (pSettings->line_exist(sect, "snd_night_vision_broken"))
+        HUD_SOUND::LoadSound(sect, "snd_night_vision_broken", m_NightVisionBrokenSnd, SOUND_TYPE_ITEM_USING);
+}
+
+void CActor::SwitchNightVision() { SwitchNightVision(!m_bNightVisionOn); }
+
+void CActor::SwitchNightVision(bool vision_on)
+{
+    LoadNightVisionSounds();
+    const bool first_person = (this == Level().CurrentViewEntity());
+
+    if (vision_on)
+    {
+        const shared_str sect = NightVisionSect();
+        if (!sect.size())
+        {
+            m_bNightVisionOn = false;
+            return; // немає ПНВ ні в шоломі, ні в костюмі з вбудованим шоломом
+        }
+
+        constexpr LPCSTR cfg = "actor_night_vision";
+        if (pSettings->section_exist(cfg) && pSettings->line_exist(cfg, "disabled_maps"))
+        {
+            LPCSTR disabled_names = pSettings->r_string(cfg, "disabled_maps");
+            const int cnt = _GetItemCount(disabled_names);
+            string512 tmp;
+            for (int i = 0; i < cnt; ++i)
+            {
+                _GetItem(disabled_names, i, tmp);
+                if (!stricmp(tmp, Level().name().c_str()))
+                {
+                    HUD_SOUND::PlaySound(m_NightVisionBrokenSnd, Position(), this, first_person);
+                    return;
+                }
+            }
+        }
+
+        m_bNightVisionOn = true;
+        m_NightVisionCurSect = sect;
+        if (!Cameras().GetPPEffector((EEffectorPPType)effNightvision))
+        {
+            AddEffector(this, effNightvision, sect);
+            HUD_SOUND::PlaySound(m_NightVisionOnSnd, Position(), this, first_person);
+            HUD_SOUND::PlaySound(m_NightVisionIdleSnd, Position(), this, first_person, true);
+        }
+        return;
+    }
+
+    m_bNightVisionOn = false;
+    if (CEffectorPP* pp = Cameras().GetPPEffector((EEffectorPPType)effNightvision))
+    {
+        pp->Stop(1.0f);
+        HUD_SOUND::PlaySound(m_NightVisionOffSnd, Position(), this, first_person);
+    }
+    HUD_SOUND::StopSound(m_NightVisionIdleSnd);
+}
+
+void CActor::UpdateNightVision()
+{
+    if (!m_bNightVisionOn)
+        return;
+    const shared_str sect = NightVisionSect();
+    // зняли шолом / змінили на шолом без ПНВ або з іншим ПНВ - вимикаємо, гравець увімкне знову
+    if (!sect.size() || sect != m_NightVisionCurSect)
+    {
+        SwitchNightVision(false);
+        return;
+    }
+    // після завантаження рівня ефектор міг зникнути
+    if (!Cameras().GetPPEffector((EEffectorPPType)effNightvision))
+        AddEffector(this, effNightvision, sect);
 }

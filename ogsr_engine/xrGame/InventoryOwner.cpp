@@ -543,6 +543,12 @@ float CInventoryOwner::ArtefactsAddWeight(bool first) const
         if (artefact && (!Core.Features.test(xrCore::Feature::af_zero_condition) || !fis_zero(artefact->GetCondition())))
             add_weight += first ? artefact->m_additional_weight : artefact->m_additional_weight2;
     }
+    // "Загублений в Зоні": рюкзак у слоті BACKPACK_SLOT (клас артефакта) додає вагу так само
+    if (BACKPACK_SLOT < inventory().m_slots.size())
+    {
+        if (CArtefact* backpack = smart_cast<CArtefact*>(inventory().m_slots[BACKPACK_SLOT].m_pIItem))
+            add_weight += first ? backpack->m_additional_weight : backpack->m_additional_weight2;
+    }
     return add_weight;
 }
 

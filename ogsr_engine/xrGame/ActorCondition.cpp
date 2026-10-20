@@ -676,18 +676,28 @@ void CActorCondition::net_Relcase(CObject* O)
 
 float CActorCondition::HitOutfitEffect(float hit_power, ALife::EHitType hit_type, s16 element, float AP, bool wear)
 {
-    if (m_object->IsHelmetHeadHit(u16(element)))
+    // Правило голови діє лише для типів head_only (кулі, удари, розриви); решта - без розділення на голову/тіло
+    const auto& p = m_object->HelmetParams();
+    if (p.head_only[hit_type] && m_object->IsHelmetHeadHit(u16(element)))
     {
-        const CCustomOutfit* outfit = m_object->GetOutfit();
-        // костюм із вбудованим шоломом сам захищає голову і зношується - як звичайно
-        if (!outfit || !outfit->m_bBuiltInHelmet)
+        CCustomOutfit* outfit = m_object->GetOutfit();
+        if (!outfit)
+            return hit_power;
+
+        if (outfit->m_bBuiltInHelmet)
         {
-            const auto& p = m_object->HelmetParams();
-            if (!p.outfit_protects_head)
-                return hit_power; // голову захищає тільки шолом
-            if (!p.outfit_wear_on_head)
-                wear = false;
+            // вбудований шолом: власні параметри голови (head_*), знос костюма
+            const float new_power = (hit_type == ALife::eHitTypeFireWound) ? outfit->HeadHitThruArmour(hit_power, element, AP)
+                                                                           : hit_power * outfit->GetHeadHitTypeProtection(hit_type, element);
+            if (wear)
+                outfit->Hit(hit_power, hit_type);
+            return new_power;
         }
+
+        if (!p.outfit_protects_head)
+            return hit_power; // голову захищає тільки шолом
+        if (!p.outfit_wear_on_head)
+            wear = false;
     }
     return inherited::HitOutfitEffect(hit_power, hit_type, element, AP, wear);
 }

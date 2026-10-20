@@ -170,7 +170,8 @@ void CUIInventoryWnd::Init()
         m_pUINightVisionList = xr_new<CUIDragDropListEx>();
         AttachChild(m_pUINightVisionList);
         m_pUINightVisionList->SetAutoDelete(true);
-        xml_init.InitDragDropListEx(uiXml, "dragdrop_nv", 0, m_pUINightVisionList);
+        // "Загублений в Зоні": слот рюкзака (колишній слот ПНВ); старе ім'я вузла теж підходить
+        xml_init.InitDragDropListEx(uiXml, uiXml.NavigateToNode("dragdrop_backpack", 0) ? "dragdrop_backpack" : "dragdrop_nv", 0, m_pUINightVisionList);
         BindDragDropListEnents(m_pUINightVisionList);
 
         m_pUIDetectorList = xr_new<CUIDragDropListEx>();

@@ -6,6 +6,7 @@
 #include "../actor.h"
 #include "../CustomOutfit.h"
 #include "../string_table.h"
+#include "../Include/xrRender/Kinematics.h"
 
 CUIOutfitInfo::CUIOutfitInfo() {}
 
@@ -94,7 +95,7 @@ float CUIOutfitInfo::GetArtefactParam(ActorRestoreParams params, u32 i)
 
 void CUIOutfitInfo::Update(CCustomOutfit* outfit)
 {
-    string128 _buff;
+    string512 _buff; // "Загублений в Зоні": рядки з кольорами "голова/тіло" довші за 128
 
     auto artefactEffects = Actor()->ActiveArtefactsOnBelt();
 
@@ -109,6 +110,14 @@ void CUIOutfitInfo::Update(CCustomOutfit* outfit)
         _item_health_restore_speed, _item_bleeding_restore_speed, _item_radiation_restore_speed, _item_power_restore_speed,
         _item_satiety_restore_speed, _item_thirst_restore_speed, _item_psy_health_restore_speed,
     };
+
+    // кістки для броні від куль: тіло - bip01_spine1 (як у ЗП), голова - bip01_head
+    s16 spine_bone = -1, head_bone = -1;
+    if (IKinematics* K = smart_cast<IKinematics*>(Actor()->Visual()))
+    {
+        spine_bone = s16(K->LL_BoneID("bip01_spine1"));
+        head_bone = s16(K->LL_BoneID("bip01_head"));
+    }
 
     for (u32 oi = 0; oi < _max_item_index; ++oi)
     {
@@ -147,13 +156,52 @@ void CUIOutfitInfo::Update(CCustomOutfit* outfit)
                 k_outfit = 0.0f;
             const float k_af_helm = Actor()->HitArtefactsOnBelt(1.0f, ht); // артефакти на поясі + шолом, вже >= 0
 
-            if (Actor()->HelmetParams().head_only[ht])
+            if (ht == ALife::eHitTypeFireWound)
             {
+                // Кулі: броня в балах (від сили кулі віднімається броня * стан * (1 - бронебійність)).
+                // Тіло - броня костюма; голова - вбудований шолом костюма або окремий шолом.
+                // Артефакти діють на все тіло у відсотках - окремим доданком.
+                const float cond = outfit ? outfit->GetCondition() : 0.0f;
+                const float body_arm = outfit ? outfit->GetBoneArmourRaw(spine_bone) * cond * 100.0f : 0.0f;
+                float head_arm = 0.0f;
+                if (outfit && outfit->m_bBuiltInHelmet)
+                    head_arm = outfit->GetHeadArmourRaw(head_bone) * cond * 100.0f;
+                else
+                {
+                    head_arm = Actor()->HelmetBulletArmourValue() * 100.0f;
+                    if (outfit && Actor()->OutfitProtectsHead())
+                        head_arm += outfit->GetBoneArmourRaw(head_bone) * cond * 100.0f;
+                }
+                const float af_pct = (1.0f - Actor()->HitArtefactsOnBelt(1.0f, ht, true)) * 100.0f;
+
+                if (fis_zero(body_arm) && fis_zero(head_arm) && fsimilar(af_pct, 0.0f, 0.5f))
+                    continue;
+
+                LPCSTR _imm_name = *CStringTable().translate("ui_inv_bullet_armour");
+                int _sz = sprintf_s(_buff, sizeof(_buff), "%s: %s %s%.0f%s, %s %s%.0f%s", _imm_name, *CStringTable().translate("ui_inv_prot_head"),
+                                    head_arm > 0.5f ? "%c[green]" : "", head_arm, "%c[default]", *CStringTable().translate("ui_inv_prot_body"),
+                                    body_arm > 0.5f ? "%c[green]" : "", body_arm, "%c[default]");
+                if (!fsimilar(af_pct, 0.0f, 0.5f))
+                    sprintf_s(_buff + _sz, sizeof(_buff) - _sz, ", %s %s%+.0f%%", *CStringTable().translate("ui_inv_prot_artefacts"),
+                              af_pct > 0 ? "%c[green]" : "%c[red]", af_pct);
+                _s->SetText(_buff);
+                m_listWnd->AddWindow(_s, false);
+                continue;
+            }
+            else if (Actor()->HelmetParams().head_only[ht])
+            {
+                // удари, розриви: завжди "голова, тіло"
                 const float k_af = Actor()->HitArtefactsOnBelt(1.0f, ht, true); // лише артефакти
-                const float k_outfit_head = Actor()->OutfitProtectsHead() ? k_outfit : 1.0f;
+                float k_outfit_head = 1.0f;
+                if (outfit && outfit->m_bBuiltInHelmet)
+                    k_outfit_head = outfit->GetHeadHitTypeProtection(ht, head_bone);
+                else if (Actor()->OutfitProtectsHead())
+                    k_outfit_head = k_outfit;
+                if (k_outfit_head < 0.0f)
+                    k_outfit_head = 0.0f;
                 _val_outfit = 1.0f - k_outfit * k_af;
                 _val_head = 1.0f - k_outfit_head * k_af_helm;
-                _split = !fsimilar(_val_outfit, _val_head, 0.005f);
+                _split = !(fsimilar(_val_outfit, 0.0f) && fsimilar(_val_head, 0.0f));
             }
             else
                 _val_outfit = 1.0f - k_outfit * k_af_helm;

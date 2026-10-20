@@ -295,8 +295,8 @@ bool CWeaponKnife::Action(s32 cmd, u32 flags)
     }
     break;
     case kNIGHT_VISION: {
-        auto pActorNv = smart_cast<CActor*>(H_Parent())->inventory().ItemFromSlot(IS_OGSR_GA ? NIGHT_VISION_SLOT : TORCH_SLOT);
-        if ((flags & CMD_START) && pActorNv && GetState() == eIdle)
+        auto pActorNv = smart_cast<CActor*>(H_Parent());
+        if ((flags & CMD_START) && pActorNv && pActorNv->NightVisionAvailable() && GetState() == eIdle)
         {
             NightVisionSwitch = true;
             SwitchState(eDeviceSwitch);
@@ -320,8 +320,7 @@ void CWeaponKnife::DeviceUpdate()
         }
         else if (NightVisionSwitch)
         {
-            if (auto pActorTorch = smart_cast<CTorch*>(pA->inventory().ItemFromSlot(TORCH_SLOT)))
-                pActorTorch->SwitchNightVision();
+            pA->SwitchNightVision(); // ПНВ - у шоломі/костюмі, не в ліхтарі
             NightVisionSwitch = false;
         }
     }

@@ -115,9 +115,13 @@ void CActor::IR_OnKeyboardPress(int cmd)
         auto active_hud = smart_cast<CHudItem*>(act_it);
         if (active_hud && active_hud->GetState() != CHudItem::eIdle && Core.Features.test(xrCore::Feature::busy_actor_restrictions))
             return;
-        auto pTorch = smart_cast<CTorch*>(inventory().ItemFromSlot(TORCH_SLOT));
-        if (pTorch && !smart_cast<CWeaponMagazined*>(act_it) && !smart_cast<CWeaponKnife*>(act_it) && !smart_cast<CMissile*>(act_it))
-            cmd == kNIGHT_VISION ? pTorch->SwitchNightVision() : pTorch->Switch();
+        // зі зброєю/ножем/гранатою в руках перемикання робить сам предмет (з анімацією)
+        if (smart_cast<CWeaponMagazined*>(act_it) || smart_cast<CWeaponKnife*>(act_it) || smart_cast<CMissile*>(act_it))
+            break;
+        if (cmd == kNIGHT_VISION)
+            SwitchNightVision(); // "Загублений в Зоні": ПНВ у шоломі/костюмі, ліхтар не потрібен
+        else if (auto pTorch = smart_cast<CTorch*>(inventory().ItemFromSlot(TORCH_SLOT)))
+            pTorch->Switch();
     }
     break;
     case kWPN_8: {

@@ -71,6 +71,9 @@ void CCustomOutfit::Load(LPCSTR section)
         m_fPowerLoss = 1.0f;
 
     m_bBuiltInHelmet = READ_IF_EXISTS(pSettings, r_bool, section, "built_in_helmet", false);
+    m_fHeadFireWoundArmour = READ_IF_EXISTS(pSettings, r_float, section, "head_fire_wound_armour", -1.f);
+    m_fHeadStrikeProtection = READ_IF_EXISTS(pSettings, r_float, section, "head_strike_protection", -1.f);
+    m_fHeadWoundProtection = READ_IF_EXISTS(pSettings, r_float, section, "head_wound_protection", -1.f);
 
     m_additional_weight = pSettings->r_float(section, "additional_inventory_weight");
     m_additional_weight2 = pSettings->r_float(section, "additional_inventory_weight2");
@@ -110,9 +113,36 @@ float CCustomOutfit::GetHitTypeProtection(ALife::EHitType hit_type, s16 element)
     return 1.0f - fBase * bone;
 }
 
+// "Загублений в Зоні": бронебійність обмежуємо 0..1, щоб броня не додавала шкоди при k_ap > 1
+static float clamp_ap(float AP) { return AP < 0.f ? 0.f : (AP > 1.f ? 1.f : AP); }
+
+float CCustomOutfit::GetBoneArmourRaw(s16 bone) { return m_boneProtection->getBoneArmour(bone); }
+
+float CCustomOutfit::GetHeadArmourRaw(s16 head_bone) { return m_fHeadFireWoundArmour >= 0.f ? m_fHeadFireWoundArmour : m_boneProtection->getBoneArmour(head_bone); }
+
+float CCustomOutfit::HeadHitThruArmour(float hit_power, s16 element, float AP)
+{
+    const float armour = GetHeadArmourRaw(element) * GetCondition() * (1.f - clamp_ap(AP));
+    const float min_hit = hit_power * m_boneProtection->m_fHitFrac;
+    const float r = hit_power - armour;
+    return r < min_hit ? min_hit : r;
+}
+
+float CCustomOutfit::GetHeadHitTypeProtection(ALife::EHitType hit_type, s16 element)
+{
+    float prot = -1.f;
+    if (hit_type == ALife::eHitTypeStrike)
+        prot = m_fHeadStrikeProtection;
+    else if (hit_type == ALife::eHitTypeWound || hit_type == ALife::eHitTypeWound_2)
+        prot = m_fHeadWoundProtection;
+    if (prot < 0.f)
+        return GetHitTypeProtection(hit_type, element);
+    return 1.f - prot * GetCondition();
+}
+
 float CCustomOutfit::HitThruArmour(float hit_power, s16 element, float AP)
 {
-    float BoneArmour = m_boneProtection->getBoneArmour(element) * GetCondition() * (1 - AP);
+    float BoneArmour = m_boneProtection->getBoneArmour(element) * GetCondition() * (1 - clamp_ap(AP));
     float NewHitPower = hit_power - BoneArmour;
     if (NewHitPower < hit_power * m_boneProtection->m_fHitFrac)
         return hit_power * m_boneProtection->m_fHitFrac;
@@ -163,11 +193,7 @@ void CCustomOutfit::OnDropOrMoveToRuck()
         CActor* pActor = smart_cast<CActor*>(m_pCurrentInventory->GetOwner());
         if (pActor)
         {
-            CTorch* pTorch = smart_cast<CTorch*>(pActor->inventory().ItemFromSlot(TORCH_SLOT));
-            if (pTorch)
-            {
-                pTorch->SwitchNightVision(false);
-            }
+            // ПНВ тепер не в ліхтарі: CActor::UpdateNightVision сам вимкне його, коли зникне джерело
             if (m_ActorVisual.size())
             {
                 shared_str DefVisual = pActor->GetDefaultVisualOutfit();

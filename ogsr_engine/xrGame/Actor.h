@@ -14,6 +14,7 @@
 
 #include "step_manager.h"
 #include "xr_level_controller.h"
+#include "HudSound.h"
 
 using namespace ACTOR_DEFS;
 
@@ -257,6 +258,31 @@ public:
     }
     // чи захищає поточний костюм голову: вбудований шолом або outfit_protects_head
     bool OutfitProtectsHead();
+    // броня шолома від куль: від сили кулі віднімається броня * стан * (1 - бронебійність), але не менше hit_fraction
+    float HelmetBulletArmour(float hit_power, ALife::EHitType hit_type, u16 bone, float AP);
+    // броня шолома від куль з урахуванням стану (для вікна захистів)
+    float HelmetBulletArmourValue();
+
+    // ПНВ ("Загублений в Зоні"): вбудований у шолом (nightvision_sect шолома) або в костюм із вбудованим шоломом.
+    // Не залежить від ліхтаря і не витрачає його батарею.
+    shared_str NightVisionSect();
+    bool NightVisionAvailable() { return NightVisionSect().size() != 0; }
+    void SwitchNightVision();
+    void SwitchNightVision(bool vision_on);
+    bool NightVisionOn() const { return m_bNightVisionOn; }
+
+protected:
+    void UpdateNightVision();
+    void LoadNightVisionSounds();
+    bool m_bNightVisionOn{};
+    bool m_bNightVisionSndLoaded{};
+    shared_str m_NightVisionCurSect;
+    HUD_SOUND m_NightVisionOnSnd;
+    HUD_SOUND m_NightVisionOffSnd;
+    HUD_SOUND m_NightVisionIdleSnd;
+    HUD_SOUND m_NightVisionBrokenSnd;
+
+public:
     // костюм із вбудованим шоломом не пускає окремий шолом у слот
     virtual bool CanPutInSlot(PIItem item, u32 slot) override;
 
