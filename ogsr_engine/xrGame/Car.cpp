@@ -234,6 +234,12 @@ void CCar::net_Destroy()
 #ifdef DEBUG
     DBgClearPlots();
 #endif
+    // "Загублений в Зоні": якщо машину знищують (офлайн, вибух) з актором усередині - спершу висадити його,
+    // інакше актор лишається "в машині" без машини і не може ходити
+    // (під час вивантаження рівня не чіпаємо - актор може бути вже знищений)
+    if (!Level().is_removing_objects())
+        if (CActor* driver = smart_cast<CActor*>(Owner()))
+            driver->detach_Vehicle();
     IKinematics* pKinematics = smart_cast<IKinematics*>(Visual());
     if (m_bone_steer != BI_NONE)
     {
@@ -476,7 +482,17 @@ void CCar::UpdateCL()
     }
     ASCUpdate();
     if (Owner())
+    {
+        // "Загублений в Зоні": поки актор за кермом, позиція машини в серверному (alife) об'єкті лишалась
+        // на місці спавну (SyncNetState викликався лише при збереженні). Відʼїхавши ~165 м, alife вважав машину
+        // далеко від актора і переводив в офлайн, а потім повертав онлайн на старому місці - разом з актором.
+        if (Device.dwTimeGlobal >= m_next_server_sync)
+        {
+            m_next_server_sync = Device.dwTimeGlobal + 500;
+            SyncNetState();
+        }
         return;
+    }
     //	UpdateEx			(g_fov);
     VisualUpdate(90);
     if (GetScriptControl())
@@ -629,6 +645,7 @@ void CCar::detach_Actor()
 {
     if (!Owner())
         return;
+    SyncNetState(); // місце, де актор вийшов, - туди ж і серверний об'єкт
     Owner()->setVisible(1);
     CHolderCustom::detach_Actor();
     PPhysicsShell()->remove_ObjectContactCallback(ActorObstacleCallback);

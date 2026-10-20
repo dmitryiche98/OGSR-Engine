@@ -125,6 +125,7 @@ public:
 
     bool b_wheels_limited;
     bool b_engine_on;
+    u32 m_next_server_sync{}; // "Загублений в Зоні": коли наступного разу оновити позицію в серверному об'єкті
     bool b_clutch;
     bool b_starting;
     bool b_stalling;
