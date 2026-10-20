@@ -592,6 +592,7 @@ public:
     void SetExplodeTime(u32 et);
     u32 ExplodeTime();
     // Багажник (IInventoryBox): відкривається дією "використати" позаду машини
+    virtual CInventory* GetInventory() override { return nullptr; } // CHolderCustom; вміст багажника - IInventoryBox
     virtual CGameObject& object() override { return *this; }
     virtual bool IsOpened() const override { return false; } // не відкривати як звичайний ящик (див. CActor::use_Vehicle)
     virtual CInventoryItem* cast_inventory_item() override { return nullptr; }
