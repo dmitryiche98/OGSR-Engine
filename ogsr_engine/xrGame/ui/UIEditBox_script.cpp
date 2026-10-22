@@ -18,7 +18,8 @@ void CUIEditBox::script_register(lua_State* L)
                   .def("GetTextAlignment", &CUICustomEdit::GetTextAlignment)
                   .def("SetTextPosX", &CUICustomEdit::SetTextPosX)
                   .def("SetTextPosY", &CUICustomEdit::SetTextPosY)
-                  .def("SetNumbersOnly", &CUICustomEdit::SetNumbersOnly),
+                  .def("SetNumbersOnly", &CUICustomEdit::SetNumbersOnly)
+                  .def("CaptureFocus", &CUICustomEdit::CaptureFocus), // "Загублений в Зоні": курсор одразу в полі
 
               class_<CUIEditBox, CUICustomEdit>("CUIEditBox").def(constructor<>()).def("InitTexture", &CUIEditBox::InitTexture),
 
