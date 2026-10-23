@@ -27,6 +27,7 @@ private:
     u8 m_SilentMode{};
     bool get_reject_pos(Fvector& p, Fvector& r);
     void ChangeLevel();
+    bool IsLocked();
 
 public:
     virtual ~CLevelChanger();

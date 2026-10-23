@@ -38,7 +38,7 @@ public:
     void StartCarBody(CInventoryOwner* pOurInv, CInventoryOwner* pOthers);
     void StartCarBody(CInventoryOwner* pOurInv, IInventoryBox* pBox);
     virtual void ReInitShownUI();
-    void ChangeLevel(GameGraph::_GRAPH_ID game_vert_id, u32 level_vert_id, Fvector pos, Fvector ang, Fvector pos2, Fvector ang2, bool b);
+    void ChangeLevel(GameGraph::_GRAPH_ID game_vert_id, u32 level_vert_id, Fvector pos, Fvector ang, Fvector pos2, Fvector ang2, bool b, bool locked = false);
 
     virtual void HideShownDialogs();
 
@@ -54,6 +54,7 @@ public:
 class CChangeLevelWnd : public CUIDialogWnd
 {
     CUIMessageBox* m_messageBox;
+    CUIMessageBox* m_messageBoxLocked{}; // "zone": закритий перехід - вікно з однією кнопкою (message_box_change_level_locked)
     typedef CUIDialogWnd inherited;
     void OnCancel();
     void OnOk();
@@ -66,6 +67,7 @@ public:
     Fvector m_position_cancel;
     Fvector m_angles_cancel;
     bool m_b_position_cancel;
+    bool m_locked{};
 
     CChangeLevelWnd();
     virtual ~CChangeLevelWnd(){};

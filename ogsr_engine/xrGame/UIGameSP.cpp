@@ -21,6 +21,7 @@
 #include "ui/UITalkWnd.h"
 #include "ui/UICarBodyWnd.h"
 #include "ui/UIMessageBox.h"
+#include "ui/xrUIXmlParser.h"
 
 #include "inventory.h"
 #include "HudItem.h"
@@ -206,7 +207,7 @@ void CUIGameSP::ReInitShownUI()
 
 extern ENGINE_API BOOL bShowPauseString;
 
-void CUIGameSP::ChangeLevel(GameGraph::_GRAPH_ID game_vert_id, u32 level_vert_id, Fvector pos, Fvector ang, Fvector pos2, Fvector ang2, bool b)
+void CUIGameSP::ChangeLevel(GameGraph::_GRAPH_ID game_vert_id, u32 level_vert_id, Fvector pos, Fvector ang, Fvector pos2, Fvector ang2, bool b, bool locked)
 {
     if (!MainInputReceiver() || MainInputReceiver() != UIChangeLevelWnd)
     {
@@ -217,6 +218,7 @@ void CUIGameSP::ChangeLevel(GameGraph::_GRAPH_ID game_vert_id, u32 level_vert_id
         UIChangeLevelWnd->m_position_cancel = pos2;
         UIChangeLevelWnd->m_angles_cancel = ang2;
         UIChangeLevelWnd->m_b_position_cancel = b;
+        UIChangeLevelWnd->m_locked = locked;
         m_game->StartStopMenu(UIChangeLevelWnd, true);
     }
 }
@@ -250,11 +252,28 @@ CChangeLevelWnd::CChangeLevelWnd()
     SetWndPos(m_messageBox->GetWndPos());
     m_messageBox->SetWndPos(0.0f, 0.0f);
     SetWndSize(m_messageBox->GetWndSize());
+
+    // "zone": вікно для закритого переходу (якщо шаблон є в message_box.xml)
+    CUIXml uiXml;
+    if (uiXml.Init(CONFIG_PATH, UI_PATH, "message_box.xml") && uiXml.NavigateToNode("message_box_change_level_locked", 0))
+    {
+        m_messageBoxLocked = xr_new<CUIMessageBox>();
+        m_messageBoxLocked->SetAutoDelete(true);
+        AttachChild(m_messageBoxLocked);
+        m_messageBoxLocked->Init("message_box_change_level_locked");
+        m_messageBoxLocked->SetWndPos(0.0f, 0.0f);
+        m_messageBoxLocked->Show(false);
+    }
 }
 
 void CChangeLevelWnd::SendMessage(CUIWindow* pWnd, s16 msg, void* pData)
 {
-    if (pWnd == m_messageBox)
+    if (m_messageBoxLocked && pWnd == m_messageBoxLocked)
+    {
+        if (msg == MESSAGE_BOX_OK_CLICKED)
+            OnCancel();
+    }
+    else if (pWnd == m_messageBox)
     {
         if (msg == MESSAGE_BOX_YES_CLICKED)
         {
@@ -305,6 +324,11 @@ bool CChangeLevelWnd::OnKeyboard(int dik, EUIMessages keyboard_action)
 {
     if (keyboard_action == WINDOW_KEY_PRESSED)
     {
+        if (m_locked && (dik == DIK_RETURN || dik == DIK_NUMPADENTER || is_binded(kQUIT, dik)))
+        {
+            OnCancel(); // закритий перехід: Enter/Esc = "Ясно"
+            return true;
+        }
         if (dik == DIK_RETURN || dik == DIK_NUMPADENTER)
         {
             OnOk();
@@ -323,6 +347,11 @@ bool g_block_pause = false;
 
 void CChangeLevelWnd::Show()
 {
+    if (!m_messageBoxLocked)
+        m_locked = false; // немає шаблону - звичайне вікно
+    m_messageBox->Show(!m_locked);
+    if (m_messageBoxLocked)
+        m_messageBoxLocked->Show(m_locked);
     g_block_pause = true;
     Device.Pause(TRUE, TRUE, TRUE, "CChangeLevelWnd_show");
     bShowPauseString = FALSE;

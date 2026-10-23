@@ -22,6 +22,8 @@
 
 #include "patrol_path.h"
 #include "patrol_path_storage.h"
+#include "script_engine.h"
+#include "script_game_object.h"
 
 xr_vector<CLevelChanger*> g_lchangers;
 
@@ -106,12 +108,30 @@ void CLevelChanger::shedule_Update(u32 dt)
 
 extern bool g_block_all_except_movement;
 
+// "zone": закриті переходи. [engine_callbacks] level_changer_locked = <модуль.функція>(level_changer_obj) -> bool
+bool CLevelChanger::IsLocked()
+{
+    if (!pSettings->line_exist("engine_callbacks", "level_changer_locked"))
+        return false;
+    luabind::functor<bool> func;
+    if (!ai().script_engine().functor(pSettings->r_string("engine_callbacks", "level_changer_locked"), func))
+        return false;
+    return func(lua_game_object());
+}
+
 void CLevelChanger::feel_touch_new(CObject* tpObject)
 {
     CActor* l_tpActor = smart_cast<CActor*>(tpObject);
     VERIFY(l_tpActor);
     if (!l_tpActor->g_Alive())
         return;
+
+    if (m_SilentMode && !g_block_all_except_movement && IsLocked())
+    {
+        ChangeLevel(); // закритий "тихий" перехід: показуємо вікно "поки що вам сюди не треба"
+        m_entrance_time = Device.fTimeGlobal;
+        return;
+    }
 
     if (m_SilentMode || g_block_all_except_movement)
     {
@@ -204,7 +224,7 @@ void CLevelChanger::ChangeLevel()
     if (pGameSP)
     {
         Actor()->callback(GameObject::eLevelChangerAction)(lua_game_object(), (CUIWindow*)pGameSP->UIChangeLevelWnd);
-        pGameSP->ChangeLevel(m_game_vertex_id, m_level_vertex_id, m_position, m_angles, p, r, b);
+        pGameSP->ChangeLevel(m_game_vertex_id, m_level_vertex_id, m_position, m_angles, p, r, b, IsLocked());
     }
 }
 
