@@ -5,10 +5,11 @@
 
 #include "../xrcdb/xr_collide_defs.h"
 
-inline const float max_desired_items = std::thread::hardware_concurrency() < 3u ? 1000.f : 2000.f;
+// Zone: wider rain column (was 15 m / 2000 drops) so rain no longer looks like a pillar over the player
+inline const float max_desired_items = std::thread::hardware_concurrency() < 3u ? 1800.f : 3500.f;
 inline const float min_desired_items = max_desired_items / 10.f;
 
-constexpr float source_radius = 15;//12.5f;
+constexpr float source_radius = 22.f; // 15 // 12.5f;
 constexpr float source_offset = 40.f; // 40
 
 constexpr float max_distance = source_offset * 1.5f; // 1.25f;
