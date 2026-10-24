@@ -441,6 +441,10 @@ bool CUIXmlInit::InitDragDropListEx(CUIXml& xml_doc, const char* path, int index
 
     InitAlignment(xml_doc, path, index, x, y, pWnd);
 
+    // Zone: hint for an empty slot
+    if (LPCSTR text_hint = xml_doc.ReadAttrib(path, index, "hint", nullptr))
+        pWnd->m_hint_text = CStringTable().translate(text_hint);
+
     // Add by Zander |
     bool use_real_pix = (xml_doc.ReadAttribInt(path, index, "as_is", 0));
     bool use_autocalc = (xml_doc.ReadAttribInt(path, index, "autocalc", 0));

@@ -36,6 +36,15 @@ void CUIButtonHint::OnRender()
         return;
     last_frame = Device.dwFrame;
 
+    // Zone: owner that stopped drawing (its window got hidden) releases the hint, otherwise it blocks all other hints
+    if (m_ownerWnd && !m_enabledOnFrame)
+    {
+        if (++m_missedFrames > 2)
+            m_ownerWnd = nullptr;
+    }
+    else
+        m_missedFrames = 0;
+
     if (m_enabledOnFrame)
     {
         m_text->Update();

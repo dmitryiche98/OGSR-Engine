@@ -1,5 +1,6 @@
 #include "stdafx.h"
 #include "UIDragDropListEx.h"
+#include "UIBtnHint.h"
 #include "UIScrollBar.h"
 #include "../object_broker.h"
 #include "UICellItem.h"
@@ -49,6 +50,9 @@ CUIDragDropListEx::CUIDragDropListEx()
 
 CUIDragDropListEx::~CUIDragDropListEx()
 {
+    if (g_btnHint && g_btnHint->Owner() == this)
+        g_btnHint->Discard();
+
     DestroyDragItem();
 
     delete_data(m_container);
@@ -255,6 +259,9 @@ void CUIDragDropListEx::Draw()
 {
     inherited::Draw();
 
+    if (g_btnHint && g_btnHint->Owner() == this)
+        g_btnHint->Draw_();
+
     if (0 && bDebug)
     {
         CGameFont* F = UI()->Font()->pFontDI;
@@ -267,9 +274,51 @@ void CUIDragDropListEx::Draw()
     };
 }
 
+void CUIDragDropListEx::UpdateEmptyHint()
+{
+    if (!g_btnHint || !m_hint_text.size())
+        return;
+
+    Frect wndRect;
+    GetAbsoluteRect(wndRect);
+    const Fvector2 c_pos = GetUICursor()->GetCursorPosition();
+    const bool hover = !m_drag_item && ItemsCount() == 0 && wndRect.in(c_pos);
+
+    if (!hover)
+    {
+        m_hint_hover_start = 0;
+        if (g_btnHint->Owner() == this)
+            g_btnHint->Discard();
+        return;
+    }
+
+    if (!m_hint_hover_start)
+        m_hint_hover_start = Device.dwTimeGlobal;
+
+    if (Device.dwTimeGlobal < m_hint_hover_start + 300)
+        return;
+
+    if (!g_btnHint->Owner())
+        g_btnHint->SetHintText(this, *m_hint_text);
+    if (g_btnHint->Owner() != this)
+        return;
+
+    // place the frame next to the cursor, keep it on screen
+    Frect r;
+    r.set(0.0f, 0.0f, g_btnHint->GetWidth(), g_btnHint->GetHeight());
+    r.add(c_pos.x + 16.0f, c_pos.y + 16.0f);
+    if (r.x2 > UI_BASE_WIDTH)
+        r.sub(r.width() + 24.0f, 0.0f);
+    if (r.y2 > UI_BASE_HEIGHT)
+        r.sub(0.0f, r.height() + 24.0f);
+    g_btnHint->SetWndPos(r.lt);
+}
+
 void CUIDragDropListEx::Update()
 {
     inherited::Update();
+
+    UpdateEmptyHint();
 
     if (m_drag_item)
     {

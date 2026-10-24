@@ -167,6 +167,13 @@ public:
     virtual void SendMessage(CUIWindow* pWnd, s16 msg, void* pData = NULL);
 
     void enable_highlight(const bool);
+
+    // Zone: hint near the cursor while hovering an empty slot (xml attribute hint="string_id")
+    shared_str m_hint_text;
+
+private:
+    u32 m_hint_hover_start{};
+    void UpdateEmptyHint();
 };
 
 class CUICellContainer : public CUIWindow
