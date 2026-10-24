@@ -281,7 +281,7 @@ void CUIDragDropListEx::UpdateEmptyHint()
 
     Frect wndRect;
     GetAbsoluteRect(wndRect);
-    const Fvector2 c_pos = GetUICursor()->GetCursorPosition();
+    Fvector2 c_pos = GetUICursor()->GetCursorPosition();
     const bool hover = !m_drag_item && ItemsCount() == 0 && wndRect.in(c_pos);
 
     if (!hover)
