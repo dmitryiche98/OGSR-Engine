@@ -29,6 +29,13 @@ void CUIScrollView::SendMessage(CUIWindow* pWnd, s16 msg, void* pData)
 
 void CUIScrollView::ForceUpdate() { m_flags.set(eNeedRecalc, TRUE); }
 
+float CUIScrollView::GetContentHeight()
+{
+    if (m_flags.test(eNeedRecalc))
+        RecalcSize();
+    return m_pad ? m_pad->GetHeight() : 0.0f;
+}
+
 void CUIScrollView::ForceScrollPosition()
 {
     if (m_flags.test(eNeedRecalc))

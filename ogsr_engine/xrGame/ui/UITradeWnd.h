@@ -1,4 +1,5 @@
 #pragma once
+#include "UIItemHint.h"
 #include "UIWindow.h"
 #include "../inventory_space.h"
 
@@ -93,6 +94,7 @@ protected:
 
 public:
     CUICellItem* m_pCurrentCellItem;
+    CUIItemHint m_itemHint; // Zone: description popup near the cursor
 
 protected:
     TIItemContainer ruck_list;

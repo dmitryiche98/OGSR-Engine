@@ -1417,6 +1417,7 @@
     <ClInclude Include="ui\UICharacterInfo.h" />
     <ClInclude Include="ui\ui_af_params.h" />
     <ClInclude Include="ui\UIItemInfo.h" />
+    <ClInclude Include="ui\UIItemHint.h" />
     <ClInclude Include="ui\UIWpnParams.h" />
     <ClInclude Include="ui\UIOutfitInfo.h" />
     <ClInclude Include="ui\UIInventoryUtilities.h" />
@@ -2355,6 +2356,7 @@
     <ClCompile Include="ui\UIWpnParams.cpp" />
     <ClCompile Include="ui\ui_af_params.cpp" />
     <ClCompile Include="ui\UIItemInfo.cpp" />
+    <ClCompile Include="ui\UIItemHint.cpp" />
     <ClCompile Include="ui\UIOutfitInfo.cpp" />
     <ClCompile Include="ui\UIInventoryUtilities.cpp" />
     <ClCompile Include="ui\UIBtnHint.cpp" />

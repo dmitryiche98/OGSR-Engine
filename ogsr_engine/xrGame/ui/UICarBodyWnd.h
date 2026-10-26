@@ -1,4 +1,5 @@
 #pragma once
+#include "UIItemHint.h"
 
 #include "UIDialogWnd.h"
 #include "UIEditBox.h"
@@ -69,6 +70,7 @@ protected:
 
 public:
     CUICellItem* m_pCurrentCellItem;
+    CUIItemHint m_itemHint; // Zone: description popup near the cursor
 
     CInventoryOwner* m_pOthersObject;
     IInventoryBox* m_pInventoryBox;

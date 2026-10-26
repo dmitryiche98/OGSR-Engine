@@ -160,6 +160,11 @@ void CUICarBodyWnd::Init()
 
         uiXml.SetLocalRoot(stored_root);
     }
+
+    // Zone: description popup near the cursor; attached last so it is drawn over everything
+    m_itemHint.Init(this);
+    if (!CUIItemHint::PanelEnabled())
+        m_pUIDescWnd->Show(false);
 }
 
 void CUICarBodyWnd::InitCarBody(CInventoryOwner* pOur, IInventoryBox* pInvBox)
@@ -251,6 +256,7 @@ void CUICarBodyWnd::Hide()
     m_pUIOurBagList->ClearAll(true);
     m_pUIOthersBagList->ClearAll(true);
     inherited::Hide();
+    m_itemHint.Reset();
     if (m_pInventoryBox)
         m_pInventoryBox->m_in_use = false;
 
@@ -462,6 +468,7 @@ void CUICarBodyWnd::Update()
         GetHolder()->StartStopMenu(this, true);
     }
     inherited::Update();
+    m_itemHint.Update();
 }
 
 void CUICarBodyWnd::Show()
@@ -472,6 +479,7 @@ void CUICarBodyWnd::Show()
     InventoryUtilities::SendInfoToActor("ui_car_body");
     inherited::Show();
     SetCurrentItem(NULL);
+    m_itemHint.Reset();
     InventoryUtilities::UpdateWeight(*m_pUIOurBagWnd);
 
     if (Core.Features.test(xrCore::Feature::engine_ammo_repacker) && !Core.Features.test(xrCore::Feature::hard_ammo_reload))

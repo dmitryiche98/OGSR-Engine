@@ -12,6 +12,7 @@ class CInventory;
 
 #include "UIOutfitInfo.h"
 #include "UIItemInfo.h"
+#include "UIItemHint.h"
 #include "../inventory_space.h"
 
 class CArtefact;
@@ -132,6 +133,7 @@ protected:
     //информация о персонаже
     CUIOutfitInfo UIOutfitInfo;
     CUIItemInfo UIItemInfo;
+    CUIItemHint m_itemHint; // Zone: description popup near the cursor
 
     CInventory* m_pInv;
 

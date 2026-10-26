@@ -8,6 +8,7 @@ class CUIProgressBar;
 class CUIWpnParams;
 class CUIArtefactParams;
 class CPhysicsShellHolder;
+class CUIFrameWindow;
 
 // extern const char * const 		fieldsCaptionColor;
 
@@ -29,11 +30,15 @@ public:
 
     void Init(float x, float y, float width, float height, LPCSTR xml_name);
     void Init(LPCSTR xml_name);
-    void InitItem(CInventoryItem* pInvItem);
+    // pCompareItem (Zone): what the actor wears of the same kind - weapon params show it as second bars,
+    // the script callback gets it as the 3rd argument
+    void InitItem(CInventoryItem* pInvItem, CInventoryItem* pCompareItem = nullptr);
+    // Zone: shrink the description list (and the window, background_frame) to the content, for the popup
+    void AdjustHeightToContent();
 
-    void TryAddWpnInfo(CPhysicsShellHolder& obj);
+    void TryAddWpnInfo(CPhysicsShellHolder& obj, CPhysicsShellHolder* cmp = nullptr);
     void TryAddArtefactInfo(const shared_str& af_section);
-    void TryAddCustomInfo(CPhysicsShellHolder& obj);
+    void TryAddCustomInfo(CPhysicsShellHolder& obj, CPhysicsShellHolder* cmp = nullptr);
 
     virtual void Draw();
     bool m_b_force_drawing;
@@ -48,4 +53,8 @@ public:
 
     Fvector2 UIItemImageSize;
     CUIStatic* UIItemImage;
+
+    CUIFrameWindow* UIBackground{}; // Zone: optional node background_frame, resized by AdjustHeightToContent
+    float m_descMaxHeight{};
+    float m_bottomIndent{};
 };

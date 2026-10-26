@@ -194,6 +194,18 @@ void CUITradeWnd::Init()
 
         uiXml.SetLocalRoot(stored_root);
     }
+
+    // Zone: description popup near the cursor (price as in the trade, like SetCurrentItem); attached last
+    m_itemHint.Init(this, [this](CUIItemInfo& info, CUICellItem* cell) {
+        if (!info.UICost || !m_pOthersTrade)
+            return;
+        CUIDragDropListEx* owner = cell->OwnerList();
+        const bool bBuying = (owner == &m_uidata->UIOurBagList) || (owner == &m_uidata->UIOurTradeList);
+        static const char* StMoneyDescr = CStringTable().translate("ui_st_money_descr").c_str();
+        info.UICost->SetText(std::format("{} {}", m_pOthersTrade->GetItemPrice(static_cast<PIItem>(cell->m_pData), bBuying), StMoneyDescr).c_str());
+    });
+    if (!CUIItemHint::PanelEnabled())
+        m_uidata->UIDescWnd.Show(false);
 }
 
 void CUITradeWnd::InitTrade(CInventoryOwner* pOur, CInventoryOwner* pOthers)
@@ -283,6 +295,7 @@ void CUITradeWnd::Update()
         UpdateLists(et);
 
     inherited::Update();
+    m_itemHint.Update();
     UpdateCameraDirection(smart_cast<CGameObject*>(m_pOthersInvOwner));
 
     if (m_uidata->UIDealMsg)
@@ -307,6 +320,7 @@ void CUITradeWnd::Show()
     SetCurrentItem(NULL);
     ResetAll();
     m_uidata->UIDealMsg = NULL;
+    m_itemHint.Reset();
 
     if (Core.Features.test(xrCore::Feature::engine_ammo_repacker) && !Core.Features.test(xrCore::Feature::hard_ammo_reload))
         if (auto pActor = Actor())
@@ -318,6 +332,7 @@ void CUITradeWnd::Hide()
     InventoryUtilities::SendInfoToActor("ui_trade_hide");
     inherited::Show(false);
     inherited::Enable(false);
+    m_itemHint.Reset();
     if (bStarted)
         StopTrade();
 

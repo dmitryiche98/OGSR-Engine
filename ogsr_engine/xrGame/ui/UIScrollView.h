@@ -61,6 +61,7 @@ public:
     CUIWindow* GetItem(u32 idx);
     void SetFixedScrollBar(bool b);
     float GetDesiredChildWidth();
+    float GetContentHeight(); // Zone: height of all items (recalculated if needed)
     virtual void SetSelected(CUIWindow*);
     CUIWindow* GetSelected();
     void ForceUpdate();

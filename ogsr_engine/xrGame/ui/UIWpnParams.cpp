@@ -43,6 +43,11 @@ void destroy_lua_wpn_params()
 
 CUIWpnParams::CUIWpnParams()
 {
+    AttachChild(&m_progressAccuracyCmp);
+    AttachChild(&m_progressDamageCmp);
+    AttachChild(&m_progressHandlingCmp);
+    AttachChild(&m_progressRPMCmp);
+
     AttachChild(&m_textAccuracy);
     AttachChild(&m_textDamage);
     AttachChild(&m_textHandling);
@@ -77,9 +82,23 @@ void CUIWpnParams::InitFromXml(CUIXml& xml_doc)
     m_progressDamage.SetRange(0, 100);
     m_progressHandling.SetRange(0, 100);
     m_progressRPM.SetRange(0, 100);
+
+    // Zone: optional comparison bars (what the actor wears), e.g. drawn under the main bars
+    m_hasCmp = !!xml_doc.NavigateToNode("wpn_params:progress_damage_cmp", 0);
+    CUIProgressBar* cmp_bars[] = {&m_progressAccuracyCmp, &m_progressDamageCmp, &m_progressHandlingCmp, &m_progressRPMCmp};
+    const char* cmp_nodes[] = {"wpn_params:progress_accuracy_cmp", "wpn_params:progress_damage_cmp", "wpn_params:progress_handling_cmp", "wpn_params:progress_rpm_cmp"};
+    for (int i = 0; i < 4; ++i)
+    {
+        if (m_hasCmp && xml_doc.NavigateToNode(cmp_nodes[i], 0))
+        {
+            CUIXmlInit::InitProgressBar(xml_doc, cmp_nodes[i], 0, cmp_bars[i]);
+            cmp_bars[i]->SetRange(0, 100);
+        }
+        cmp_bars[i]->Show(false);
+    }
 }
 
-void CUIWpnParams::SetInfo(CPhysicsShellHolder& obj /*const shared_str& wpn_section*/)
+void CUIWpnParams::SetInfo(CPhysicsShellHolder& obj, CPhysicsShellHolder* cmp)
 {
     if (!g_lua_wpn_params)
         g_lua_wpn_params = xr_new<SLuaWpnParams>();
@@ -90,6 +109,20 @@ void CUIWpnParams::SetInfo(CPhysicsShellHolder& obj /*const shared_str& wpn_sect
     m_progressAccuracy.SetProgressPos(g_lua_wpn_params->m_functorAccuracy(*wpn_section, obj.lua_game_object()));
     m_progressDamage.SetProgressPos(g_lua_wpn_params->m_functorDamage(*wpn_section, obj.lua_game_object()));
     m_progressHandling.SetProgressPos(g_lua_wpn_params->m_functorHandling(*wpn_section, obj.lua_game_object()));
+
+    const bool show_cmp = m_hasCmp && cmp;
+    m_progressAccuracyCmp.Show(show_cmp);
+    m_progressDamageCmp.Show(show_cmp);
+    m_progressHandlingCmp.Show(show_cmp);
+    m_progressRPMCmp.Show(show_cmp);
+    if (show_cmp)
+    {
+        const shared_str& cmp_section = cmp->cNameSect();
+        m_progressRPMCmp.SetProgressPos(g_lua_wpn_params->m_functorRPM(*cmp_section, cmp->lua_game_object()));
+        m_progressAccuracyCmp.SetProgressPos(g_lua_wpn_params->m_functorAccuracy(*cmp_section, cmp->lua_game_object()));
+        m_progressDamageCmp.SetProgressPos(g_lua_wpn_params->m_functorDamage(*cmp_section, cmp->lua_game_object()));
+        m_progressHandlingCmp.SetProgressPos(g_lua_wpn_params->m_functorHandling(*cmp_section, cmp->lua_game_object()));
+    }
 }
 
 bool CUIWpnParams::Check(CPhysicsShellHolder& obj /*const shared_str& wpn_section*/)

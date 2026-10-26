@@ -239,6 +239,11 @@ void CUIInventoryWnd::Init()
 
         uiXml.SetLocalRoot(stored_root);
     }
+
+    // Zone: description popup near the cursor; attached last so it is drawn over everything
+    m_itemHint.Init(this);
+    if (!CUIItemHint::PanelEnabled())
+        UIDescrWnd.Show(false);
 }
 
 EListType CUIInventoryWnd::GetType(CUIDragDropListEx* l)
@@ -328,12 +333,14 @@ void CUIInventoryWnd::Update()
     UIStaticTimeString.SetText(*InventoryUtilities::GetGameTimeAsString(InventoryUtilities::etpTimeToMinutes));
 
     CUIWindow::Update();
+    m_itemHint.Update();
 }
 
 void CUIInventoryWnd::Show()
 {
     InitInventory();
     inherited::Show();
+    m_itemHint.Reset();
 
     if (Core.Features.test(xrCore::Feature::more_hide_weapon))
         Actor()->SetWeaponHideState(INV_STATE_INV_WND, true);
@@ -354,6 +361,7 @@ void CUIInventoryWnd::Hide()
 {
     PlaySnd(eInvSndClose);
     inherited::Hide();
+    m_itemHint.Reset();
 
     SendInfoToActor("ui_inventory_hide");
     ClearAllLists();

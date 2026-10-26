@@ -17,10 +17,18 @@ public:
     virtual ~CUIWpnParams();
 
     void InitFromXml(CUIXml& xml_doc);
-    void SetInfo(CPhysicsShellHolder& obj /*const shared_str& wpn_section*/);
+    // cmp (Zone): weapon to compare with - shown by the optional *_cmp bars (behind the main ones)
+    void SetInfo(CPhysicsShellHolder& obj, CPhysicsShellHolder* cmp = nullptr);
     bool Check(CPhysicsShellHolder& obj /*const shared_str& wpn_section*/);
 
 protected:
+    // Zone: comparison bars, attached first so the main bars are drawn over them
+    CUIProgressBar m_progressAccuracyCmp;
+    CUIProgressBar m_progressHandlingCmp;
+    CUIProgressBar m_progressDamageCmp;
+    CUIProgressBar m_progressRPMCmp;
+    bool m_hasCmp{};
+
     CUIProgressBar m_progressAccuracy;
     CUIProgressBar m_progressHandling;
     CUIProgressBar m_progressDamage;
