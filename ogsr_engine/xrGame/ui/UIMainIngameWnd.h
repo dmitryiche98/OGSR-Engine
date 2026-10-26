@@ -76,7 +76,10 @@ protected:
     CUIStatic UIPsyHealthIcon;
     CUIStatic UIInvincibleIcon;
     CUIStatic UIThirstIcon;
-    //	CUIStatic			UISleepIcon;
+    // Zone: low bodrost (max_power), broken outfit / helmet - optional, shown only if their xml node exists
+    CUIStatic UISleepIcon;
+    CUIStatic UIOutfitBrokenIcon;
+    CUIStatic UIHelmetBrokenIcon;
     //	CUIStatic			UIArtefactIcon;
 
     CUIScrollView* m_UIIcons{};
@@ -96,9 +99,14 @@ public:
         ewiPsyHealth,
         ewiInvincible,
         ewiThirst,
-        //		ewiSleep,
-        //		ewiArtefact,
+        ewiSleep,
+        ewiOutfitBroken,
+        ewiHelmetBroken,
+        ewiCount
     };
+
+    // Zone: optional icons (ewiSleep and later) are on only when their xml node exists
+    bool m_IconEnabled[ewiCount]{};
 
     // Задаем цвет соответствующей иконке
     void SetWarningIconColor(EWarningIcons icon, const u32 cl);

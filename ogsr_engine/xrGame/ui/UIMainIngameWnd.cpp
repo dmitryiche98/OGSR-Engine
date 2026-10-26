@@ -64,7 +64,7 @@ static CUIMainIngameWnd* GetMainIngameWindow()
     return nullptr;
 }
 
-static CUIStatic* warn_icon_list[8]{};
+static CUIStatic* warn_icon_list[CUIMainIngameWnd::ewiCount]{};
 
 // alpet: для возможности внешнего контроля иконок (используется в NLC6 вместо типичных индикаторов). Никак не влияет на игру для остальных модов.
 static bool external_icon_ctrl = false;
@@ -112,6 +112,9 @@ CUIMainIngameWnd::CUIMainIngameWnd()
     warn_icon_list[ewiPsyHealth] = &UIPsyHealthIcon;
     warn_icon_list[ewiInvincible] = &UIInvincibleIcon;
     warn_icon_list[ewiThirst] = &UIThirstIcon;
+    warn_icon_list[ewiSleep] = &UISleepIcon;
+    warn_icon_list[ewiOutfitBroken] = &UIOutfitBrokenIcon;
+    warn_icon_list[ewiHelmetBroken] = &UIHelmetBrokenIcon;
 }
 
 #include "UIProgressShape.h"
@@ -222,35 +225,54 @@ void CUIMainIngameWnd::Init()
         UIThirstIcon.Show(false);
     }
 
-    constexpr const char* warningStrings[] = {
-        "jammed",     "radiation", "wounds", "starvation",
-        "fatigue", // PsyHealth ???
-        "invincible", // Not used
-        "thirst",
+    // Zone: optional icons - low bodrost, broken outfit, broken helmet
+    {
+        constexpr std::pair<EWarningIcons, const char*> optional_icons[] = {
+            {ewiSleep, "sleep_static"}, {ewiOutfitBroken, "outfit_broken_static"}, {ewiHelmetBroken, "helmet_broken_static"}};
+        for (const auto& [icon, node] : optional_icons)
+        {
+            m_IconEnabled[icon] = !!uiXml.NavigateToNode(node, 0);
+            if (m_IconEnabled[icon])
+            {
+                xml_init.InitStatic(uiXml, node, 0, warn_icon_list[icon]);
+                warn_icon_list[icon]->Show(false);
+            }
+        }
+    }
+
+    // keys in [main_ingame_indicators_thresholds], by EWarningIcons (fatigue = psy health, historical name)
+    constexpr const char* warningStrings[ewiCount] = {
+        "", "jammed", "radiation", "wounds", "starvation", "fatigue", "invincible", "thirst", "sleep", "outfit_broken", "helmet_broken",
     };
 
     // Загружаем пороговые значения для индикаторов
-    EWarningIcons i = ewiWeaponJammed;
-    while (i <= (Core.Features.test(xrCore::Feature::actor_thirst) ? ewiThirst : ewiInvincible))
+    constexpr const char* thr_sect = "main_ingame_indicators_thresholds";
+    for (int k = ewiWeaponJammed; k < ewiCount; ++k)
     {
+        const auto i = static_cast<EWarningIcons>(k);
+        if (i == ewiInvincible || (i == ewiThirst && !Core.Features.test(xrCore::Feature::actor_thirst)))
+            continue;
+        if (i >= ewiSleep && !m_IconEnabled[i])
+            continue;
+        if (i >= ewiSleep && !pSettings->line_exist(thr_sect, warningStrings[i]))
+        {
+            Msg("! [%s] icon [%s] has no thresholds, disabled", thr_sect, warningStrings[i]);
+            continue;
+        }
+
         // Читаем данные порогов для каждого индикатора
-        const char* cfgRecord = pSettings->r_string("main_ingame_indicators_thresholds", warningStrings[static_cast<int>(i) - 1]);
+        const char* cfgRecord = pSettings->r_string(thr_sect, warningStrings[i]);
         u32 count = _GetItemCount(cfgRecord);
 
         char singleThreshold[8];
         float f = 0;
-        for (u32 k = 0; k < count; ++k)
+        for (u32 n = 0; n < count; ++n)
         {
-            _GetItem(cfgRecord, k, singleThreshold);
+            _GetItem(cfgRecord, n, singleThreshold);
             sscanf(singleThreshold, "%f", &f);
 
             m_Thresholds[i].push_back(f);
         }
-
-        i = static_cast<EWarningIcons>(i + 1);
-
-        if (i == ewiInvincible)
-            i = static_cast<EWarningIcons>(i + 1);
     }
 
     // Flashing icons initialize
@@ -374,9 +396,13 @@ void CUIMainIngameWnd::Update()
 
         UpdateActiveItemInfo();
 
-        EWarningIcons i = ewiWeaponJammed;
-        while (!external_icon_ctrl && i <= (Core.Features.test(xrCore::Feature::actor_thirst) ? ewiThirst : ewiInvincible))
+        for (int k = ewiWeaponJammed; !external_icon_ctrl && k < ewiCount; ++k)
         {
+            const auto i = static_cast<EWarningIcons>(k);
+            const auto thr = m_Thresholds.find(i);
+            if (thr == m_Thresholds.end() || thr->second.empty())
+                continue;
+
             float value = 0;
             switch (i)
             {
@@ -390,42 +416,47 @@ void CUIMainIngameWnd::Update()
             case ewiStarvation: value = 1 - m_pActor->conditions().GetSatiety(); break;
             case ewiThirst: value = 1 - m_pActor->conditions().GetThirst(); break;
             case ewiPsyHealth: value = 1 - m_pActor->conditions().GetPsyHealth(); break;
+            case ewiSleep: value = 1 - m_pActor->conditions().GetMaxPower(); break;
+            case ewiOutfitBroken:
+                if (PIItem it = m_pActor->inventory().ItemFromSlot(OUTFIT_SLOT))
+                    value = 1 - it->GetCondition();
+                break;
+            case ewiHelmetBroken:
+                if (PIItem it = m_pActor->inventory().ItemFromSlot(HELMET_SLOT))
+                    value = 1 - it->GetCondition();
+                break;
             default: R_ASSERT(!"Unknown type of warning icon");
             }
 
-            xr_vector<float>::reverse_iterator rit;
+            const xr_vector<float>& th = thr->second;
+            xr_vector<float>::const_reverse_iterator rit;
 
             // Сначала проверяем на точное соответсвие
-            rit = std::find(m_Thresholds[i].rbegin(), m_Thresholds[i].rend(), value);
+            rit = std::find(th.rbegin(), th.rend(), value);
 
             // Если его нет, то берем последнее меньшее значение ()
-            if (rit == m_Thresholds[i].rend())
-                rit = std::find_if(m_Thresholds[i].rbegin(), m_Thresholds[i].rend(), std::bind(std::less<float>(), std::placeholders::_1, value));
+            if (rit == th.rend())
+                rit = std::find_if(th.rbegin(), th.rend(), std::bind(std::less<float>(), std::placeholders::_1, value));
 
             // Минимальное и максимальное значения границы
-            float min = m_Thresholds[i].front();
-            float max = m_Thresholds[i].back();
+            float min = th.front();
+            float max = th.back();
 
-            if (rit != m_Thresholds[i].rend())
+            if (rit != th.rend())
             {
                 float v = *rit;
-                SetWarningIconColor(i,
-                                    color_argb(0xFF, clampr<u32>(static_cast<u32>(255 * ((v - min) / (max - min) * 2)), 0, 255),
-                                               clampr<u32>(static_cast<u32>(255 * (2.0f - (v - min) / (max - min) * 2)), 0, 255), 0));
+                const float t = max > min ? (v - min) / (max - min) : 1.f;
+                SetWarningIconColor(i, color_argb(0xFF, clampr<u32>(static_cast<u32>(255 * (t * 2)), 0, 255), clampr<u32>(static_cast<u32>(255 * (2.0f - t * 2)), 0, 255), 0));
             }
             else
                 TurnOffWarningIcon(i);
-
-            i = (EWarningIcons)(i + 1);
-
-            if (i == ewiInvincible)
-                i = (EWarningIcons)(i + 1);
         }
     }
 
     // health&armor
     UIHealthBar.SetProgressPos(m_pActor->GetfHealth() * 100.0f);
-    UIMotionIcon.SetPower(m_pActor->conditions().GetPower() * 100.0f);
+    // Zone: stamina is shown relative to its ceiling (bodrost, max_power)
+    UIMotionIcon.SetPower(m_pActor->conditions().GetPower() / _max(m_pActor->conditions().GetMaxPower(), 0.01f) * 100.0f);
 
     UIZoneMap->UpdateRadar(Device.vCameraPosition);
     float h, p;
@@ -524,43 +555,15 @@ void CUIMainIngameWnd::SetWarningIconColor(CUIStatic* s, const u32 cl)
 
 void CUIMainIngameWnd::SetWarningIconColor(EWarningIcons icon, const u32 cl)
 {
-    bool bMagicFlag = true;
-
-    // Задаем цвет требуемой иконки
-    switch (icon)
+    // Задаем цвет требуемой иконки (ewiAll - всем)
+    R_ASSERT(icon >= ewiAll && icon < ewiCount, "Unknown warning icon type");
+    for (int k = (icon == ewiAll ? ewiWeaponJammed : icon); k < ewiCount; ++k)
     {
-    case ewiAll: bMagicFlag = false;
-    case ewiWeaponJammed:
-        SetWarningIconColor(&UIWeaponJammedIcon, cl);
-        if (bMagicFlag)
+        const bool skip = (k == ewiThirst && !Core.Features.test(xrCore::Feature::actor_thirst)) || (k >= ewiSleep && !m_IconEnabled[k]);
+        if (!skip && warn_icon_list[k])
+            SetWarningIconColor(warn_icon_list[k], cl);
+        if (icon != ewiAll)
             break;
-    case ewiRadiation:
-        SetWarningIconColor(&UIRadiaitionIcon, cl);
-        if (bMagicFlag)
-            break;
-    case ewiWound:
-        SetWarningIconColor(&UIWoundIcon, cl);
-        if (bMagicFlag)
-            break;
-    case ewiStarvation:
-        SetWarningIconColor(&UIStarvationIcon, cl);
-        if (bMagicFlag)
-            break;
-    case ewiThirst:
-        SetWarningIconColor(&UIThirstIcon, cl);
-        if (bMagicFlag)
-            break;
-    case ewiPsyHealth:
-        SetWarningIconColor(&UIPsyHealthIcon, cl);
-        if (bMagicFlag)
-            break;
-    case ewiInvincible:
-        SetWarningIconColor(&UIInvincibleIcon, cl);
-        if (bMagicFlag)
-            break;
-        break;
-
-    default: R_ASSERT(!"Unknown warning icon type");
     }
 }
 

@@ -85,17 +85,22 @@ void CUIInventoryWnd::Init()
     AttachChild(&UIPersonalWnd);
     xml_init.InitFrameWindow(uiXml, "character_frame_window", 0, &UIPersonalWnd);
 
-    AttachChild(&UIProgressBack);
-    xml_init.InitStatic(uiXml, "progress_background", 0, &UIProgressBack);
+    // Zone: the health / psy / radiation bars are optional (the stats block replaces them)
+    if (uiXml.NavigateToNode("progress_background", 0))
+    {
+        AttachChild(&UIProgressBack);
+        xml_init.InitStatic(uiXml, "progress_background", 0, &UIProgressBack);
 
-    UIProgressBack.AttachChild(&UIProgressBarHealth);
-    xml_init.InitProgressBar(uiXml, "progress_bar_health", 0, &UIProgressBarHealth);
-
-    UIProgressBack.AttachChild(&UIProgressBarPsyHealth);
-    xml_init.InitProgressBar(uiXml, "progress_bar_psy", 0, &UIProgressBarPsyHealth);
-
-    UIProgressBack.AttachChild(&UIProgressBarRadiation);
-    xml_init.InitProgressBar(uiXml, "progress_bar_radiation", 0, &UIProgressBarRadiation);
+        const std::pair<const char*, CUIProgressBar*> bars[] = {
+            {"progress_bar_health", &UIProgressBarHealth}, {"progress_bar_psy", &UIProgressBarPsyHealth}, {"progress_bar_radiation", &UIProgressBarRadiation}};
+        for (const auto& [node, bar] : bars)
+        {
+            if (!uiXml.NavigateToNode(node, 0))
+                continue;
+            UIProgressBack.AttachChild(bar);
+            xml_init.InitProgressBar(uiXml, node, 0, bar);
+        }
+    }
 
     UIPersonalWnd.AttachChild(&UIStaticPersonal);
     xml_init.InitStatic(uiXml, "static_personal", 0, &UIStaticPersonal);
@@ -241,6 +246,8 @@ void CUIInventoryWnd::Init()
     }
 
     // Zone: description popup near the cursor; attached last so it is drawn over everything
+    uiXml.SetLocalRoot(uiXml.GetRoot());
+    m_actorStats.Init(uiXml, this);
     m_itemHint.Init(this);
     if (!CUIItemHint::PanelEnabled())
         UIDescrWnd.Show(false);
@@ -333,6 +340,7 @@ void CUIInventoryWnd::Update()
     UIStaticTimeString.SetText(*InventoryUtilities::GetGameTimeAsString(InventoryUtilities::etpTimeToMinutes));
 
     CUIWindow::Update();
+    m_actorStats.Update();
     m_itemHint.Update();
 }
 
@@ -341,6 +349,7 @@ void CUIInventoryWnd::Show()
     InitInventory();
     inherited::Show();
     m_itemHint.Reset();
+    m_actorStats.Reset();
 
     if (Core.Features.test(xrCore::Feature::more_hide_weapon))
         Actor()->SetWeaponHideState(INV_STATE_INV_WND, true);
@@ -362,6 +371,7 @@ void CUIInventoryWnd::Hide()
     PlaySnd(eInvSndClose);
     inherited::Hide();
     m_itemHint.Reset();
+    m_actorStats.Reset();
 
     SendInfoToActor("ui_inventory_hide");
     ClearAllLists();

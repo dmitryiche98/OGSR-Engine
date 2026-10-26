@@ -13,6 +13,7 @@ class CInventory;
 #include "UIOutfitInfo.h"
 #include "UIItemInfo.h"
 #include "UIItemHint.h"
+#include "UIActorStats.h"
 #include "../inventory_space.h"
 
 class CArtefact;
@@ -134,6 +135,7 @@ protected:
     CUIOutfitInfo UIOutfitInfo;
     CUIItemInfo UIItemInfo;
     CUIItemHint m_itemHint; // Zone: description popup near the cursor
+    CUIActorStats m_actorStats; // Zone: player stats block (optional, xml node actor_stats)
 
     CInventory* m_pInv;
 
