@@ -9,19 +9,30 @@
 #include "level.h"
 #include "entity_alive.h"
 #include "CharacterPhysicsSupport.h"
-CAmebaZone::CAmebaZone() { m_fVelocityLimit = 1.f; }
+CAmebaZone::CAmebaZone()
+{
+    m_fVelocityLimit = 1.f;
+    m_dwHitPeriod = 0;
+    m_dwLastHitTime = 0;
+}
 
 CAmebaZone::~CAmebaZone() {}
 void CAmebaZone::Load(LPCSTR section)
 {
     inherited::Load(section);
     m_fVelocityLimit = pSettings->r_float(section, "max_velocity_in_zone");
+    m_dwHitPeriod = READ_IF_EXISTS(pSettings, r_u32, section, "hit_period", 0);
 }
 bool CAmebaZone::BlowoutState()
 {
     bool result = inherited::BlowoutState();
     if (!result)
         UpdateBlowout();
+
+    // Удар не на кожному оновленні, а раз на hit_period мс: інакше шкода залежить від частоти оновлень
+    if (m_dwHitPeriod && Device.dwTimeGlobal - m_dwLastHitTime < m_dwHitPeriod)
+        return result;
+    m_dwLastHitTime = Device.dwTimeGlobal;
 
     for (OBJECT_INFO_VEC_IT it = m_ObjectInfoMap.begin(); m_ObjectInfoMap.end() != it; ++it)
         Affect(&(*it));
@@ -110,5 +121,5 @@ float CAmebaZone::distance_to_center(CObject* O)
     XFORM().transform_tiny(P, CFORM()->getSphere().P);
     Fvector OP;
     OP.set(O->Position());
-    return _sqrt((P.x - OP.x) * (P.x - OP.x) + (P.x - OP.x) * (P.x - OP.x));
+    return _sqrt((P.x - OP.x) * (P.x - OP.x) + (P.z - OP.z) * (P.z - OP.z)); // у ТЧ тут двічі стояв x
 }
