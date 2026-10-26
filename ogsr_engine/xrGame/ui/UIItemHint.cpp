@@ -68,13 +68,13 @@ CInventoryItem* CUIItemHint::CompareItem(CInventoryItem* item)
         res = inv.ItemFromSlot(HELMET_SLOT);
     else if (HasSlot(item, KNIFE_SLOT))
         res = inv.ItemFromSlot(KNIFE_SLOT);
-    else if (HasSlot(item, PISTOL_SLOT) || HasSlot(item, RIFLE_SLOT))
+    else if (HasSlot(item, FIRST_WEAPON_SLOT) || HasSlot(item, SECOND_WEAPON_SLOT))
     {
         // both weapon slots are equal: compare with the first one; the weapon in the first slot
         // (or anything, when the first slot is empty) - with the second one
-        res = inv.ItemFromSlot(PISTOL_SLOT);
+        res = inv.ItemFromSlot(FIRST_WEAPON_SLOT);
         if (!res || res == item)
-            res = inv.ItemFromSlot(RIFLE_SLOT);
+            res = inv.ItemFromSlot(SECOND_WEAPON_SLOT);
     }
     return res == item ? nullptr : res;
 }
@@ -91,6 +91,9 @@ void CUIItemHint::Init(CUIWindow* owner, CUSTOMIZE customize)
     owner->AttachChild(m_info);
     m_info->Init(Settings().xml.c_str());
     m_info->Show(false);
+    // the item_info script keeps separate description lines for the popup and the static panel
+    if (m_info->UIDesc)
+        m_info->UIDesc->SetWindowName("item_hint_descr");
 }
 
 void CUIItemHint::Reset()
@@ -168,7 +171,7 @@ void CUIItemHint::Update()
         return;
 
     // a click hides the popup until the cursor leaves this item
-    if (pInput->iGetAsyncBtnState(0) || pInput->iGetAsyncBtnState(1))
+    if (pInput->iGetAsyncKeyState(MOUSE_1) || pInput->iGetAsyncKeyState(MOUSE_1 + 1))
     {
         m_suppressed = cell;
         HidePopup();

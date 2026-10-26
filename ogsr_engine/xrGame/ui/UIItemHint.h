@@ -5,6 +5,7 @@
 // a CUIItemInfo built from its own xml appears next to the cursor, sized to its content, kept on screen.
 // Moving off the item, starting a drag or clicking hides it (a click keeps it hidden until the cursor
 // leaves that item). Weapons, knives, outfits and helmets are compared with what the actor wears.
+// The popup description list is named "item_hint_descr" (CUIWindow::WindowName) for scripts.
 //
 // system.ltx (external.ltx) section [ui_item_hint]:
 //   mode  = panel | popup | both   ; panel - old static description panel only (default), popup - popup only
