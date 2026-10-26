@@ -83,7 +83,8 @@ CUIWindow* CUIActorStats::FindHovered(const Fvector2& pos)
     for (u32 i = 0, n = m_list->GetSize(); i < n; ++i)
     {
         CUIWindow* w = m_list->GetItem(i);
-        if (!w || !w->IsShown() || !w->WindowName().size())
+        // own name only: WindowName() makes up "parent.child_N" for unnamed windows
+        if (!w || !w->IsShown() || !w->WindowName_script() || !*w->WindowName_script())
             continue;
         Frect wr;
         w->GetAbsoluteRect(wr);
@@ -150,7 +151,7 @@ void CUIActorStats::Update()
 
     const Fvector2 pos = GetUICursor()->GetCursorPosition();
     CUIWindow* w = FindHovered(pos);
-    const shared_str name = w ? w->WindowName() : shared_str{};
+    const shared_str name = w ? shared_str(w->WindowName_script()) : shared_str{};
     m_hovered = w;
     if (name != m_hovered_name)
     {

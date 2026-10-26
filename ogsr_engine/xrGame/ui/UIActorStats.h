@@ -2,7 +2,7 @@
 
 // Zone: player stats block in the inventory (health, psy, stamina; satiety, water, bodrost; bleeding, radiation, alcohol).
 // The engine only owns the list and the hover hint; rows, texts, colours and wording are made by a Lua script:
-//   system.ltx [engine_callbacks] ui_actor_stats_callback = actor_stats.fill   ; fill(list) - CUIScrollView
+//   system.ltx [engine_callbacks] ui_actor_stats_callback = ui_actor_stats.fill   ; not actor_stats: the engine has such a module   ; fill(list) - CUIScrollView
 // The script adds CUIStatic rows to the list (AddWindow(st, false, false)), the list is cleared before each call.
 // A row whose WindowName is set (string table id) shows that text as a hint next to the cursor on hover.
 //
