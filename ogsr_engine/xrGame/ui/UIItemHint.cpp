@@ -2,6 +2,7 @@
 #include "UIItemHint.h"
 #include "UIDragDropListEx.h"
 #include "UICellItem.h"
+#include "UIScrollView.h"
 #include "../UICursor.h"
 #include "../ui_base.h"
 #include "../actor.h"
