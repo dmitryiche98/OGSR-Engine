@@ -74,7 +74,8 @@ public:
     void ConditionStand(float weight);
 
     float GetAlcohol() { return m_fAlcohol; }
-    float GetPsy() { return 1.0f - GetPsyHealth(); }
+    // Zone: psy post-effect strength: 0 at psy_effector_start (actor_condition), 1 at zero psy health
+    float GetPsy() { return clampr(1.0f - GetPsyHealth() / m_fPsyEffectorStart, 0.0f, 1.0f); }
     float GetSatiety() { return m_fSatiety; }
     float GetThirst() { return m_fThirst; }
     void SetMaxWalkWeight(float _weight) { m_MaxWalkWeight = _weight; }
@@ -98,6 +99,7 @@ public:
 protected:
     float m_fAlcohol;
     float m_fV_Alcohol;
+    float m_fPsyEffectorStart{1.0f}; // Zone: psy health below which the psy post-effect is on
     //--
     float m_fSatiety;
     float m_fSatietyLightLimit;

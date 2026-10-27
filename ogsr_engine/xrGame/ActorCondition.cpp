@@ -89,6 +89,7 @@ void CActorCondition::LoadCondition(LPCSTR entity_section)
     m_fPowerLeakSpeed = pSettings->r_float(section, "max_power_leak_speed");
 
     m_fV_Alcohol = pSettings->r_float(section, "alcohol_v");
+    m_fPsyEffectorStart = _max(READ_IF_EXISTS(pSettings, r_float, section, "psy_effector_start", 1.0f), 0.01f);
     m_fV_Power = READ_IF_EXISTS(pSettings, r_float, section, "power_v", 0.0f);
 
     m_fV_Satiety = pSettings->r_float(section, "satiety_v");
@@ -199,7 +200,8 @@ void CActorCondition::UpdateCondition()
     if (!pSettings->section_exist(pp_sect_name))
         strcpy_s(pp_sect_name, "effector_psy_health");
 
-    if (!fsimilar(GetPsyHealth(), 1.0f, 0.05f))
+    // Zone: threshold from actor_condition psy_effector_start (vanilla: on when psy health < 0.95)
+    if (GetPsyHealth() < _min(m_fPsyEffectorStart, 0.95f))
     {
         if (!ppe)
         {
